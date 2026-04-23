@@ -1,0 +1,3 @@
+email,first_name,last_name,institution,country,segment,status,consent_at
+correo1@ejemplo.com,Maria,Garcia,Instituto Umbrales,Mexico,Docentes,active,2026-04-20 10:00:00
+correo2@ejemplo.com,Juan,Perez,Colegio Horizonte,Colombia,Directivos,active,2026-04-20 11:00:00
