@@ -128,7 +128,7 @@ final class SendSession extends Model
                  success_count = :success_count,
                  failed_count = :failed_count,
                  status = :status,
-                 finished_at = IF(:status = "completed", NOW(), finished_at),
+                 finished_at = IF(:status2 = "completed", NOW(), finished_at),
                  updated_at = NOW()
              WHERE id = :id',
             [
@@ -138,6 +138,7 @@ final class SendSession extends Model
                 'success_count' => (int) ($row['success_count'] ?? 0),
                 'failed_count' => (int) ($row['failed_count'] ?? 0),
                 'status' => $status,
+                'status2' => $status,
             ]
         );
 

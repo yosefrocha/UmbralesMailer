@@ -2,7 +2,7 @@
 
 return [
     'name' => 'Umbrales Mail Sender',
-    'base_url' => 'https://meiler.umbrales.org',
+    'base_url' => 'https://mailer.umbrales.org',
     'session_name' => 'umbrales_mailer_session',
     'timezone' => 'America/Mexico_City',
     'debug' => true,

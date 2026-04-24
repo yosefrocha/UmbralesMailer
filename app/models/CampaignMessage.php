@@ -35,7 +35,7 @@ final class CampaignMessage extends Model
 
         if ($existing) {
             $params['id'] = (int) $existing['id'];
-
+            unset($params['campaign_id']); // <- esto es lo que falta
             $this->execute(
                 'UPDATE campaign_messages
                  SET subject = :subject,
