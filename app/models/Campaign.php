@@ -33,6 +33,7 @@ final class Campaign extends Model
                 id,
                 name,
                 description,
+                content_mode,
                 COALESCE(NULLIF(status, ""), "draft") AS status,
                 created_by,
                 started_at,
@@ -129,54 +130,53 @@ final class Campaign extends Model
             'latest_session' => $latest,
         ];
     }
-    
+
     public function updateSequenceSettings(int $id, array $data): void
-{
-    $this->execute(
-        'UPDATE campaigns
-         SET content_mode = :content_mode,
-             sequence_start_at = :sequence_start_at,
-             sequence_interval_days = :sequence_interval_days,
-             sequence_total_steps = :sequence_total_steps
-         WHERE id = :id',
-        [
-            'id' => $id,
-            'content_mode' => $data['content_mode'],
-            'sequence_start_at' => $data['sequence_start_at'],
-            'sequence_interval_days' => $data['sequence_interval_days'],
-            'sequence_total_steps' => $data['sequence_total_steps'],
-        ]
-    );
-}
-public function updateScheduleSettings(int $id, array $data): void
-{
-    $this->execute(
-        'UPDATE campaigns
-         SET content_mode = :content_mode,
-             sequence_start_at = :sequence_start_at,
-             sequence_interval_days = :sequence_interval_days,
-             sequence_total_sends = :sequence_total_sends
-         WHERE id = :id',
-        [
-            'id' => $id,
-            'content_mode' => $data['content_mode'],
-            'sequence_start_at' => $data['sequence_start_at'],
-            'sequence_interval_days' => $data['sequence_interval_days'],
-            'sequence_total_sends' => $data['sequence_total_sends'],
-        ]
-    );
-}
+    {
+        $this->execute(
+            'UPDATE campaigns
+             SET content_mode = :content_mode,
+                 sequence_start_at = :sequence_start_at,
+                 sequence_interval_days = :sequence_interval_days,
+                 sequence_total_steps = :sequence_total_steps
+             WHERE id = :id',
+            [
+                'id' => $id,
+                'content_mode' => $data['content_mode'],
+                'sequence_start_at' => $data['sequence_start_at'],
+                'sequence_interval_days' => $data['sequence_interval_days'],
+                'sequence_total_steps' => $data['sequence_total_steps'],
+            ]
+        );
+    }
 
-public function updateContentMode(int $id, string $contentMode): void
-{
-    $this->execute(
-        'UPDATE campaigns SET content_mode = :content_mode WHERE id = :id',
-        [
-            'id' => $id,
-            'content_mode' => $contentMode,
-        ]
-    );
-}
+    public function updateScheduleSettings(int $id, array $data): void
+    {
+        $this->execute(
+            'UPDATE campaigns
+             SET content_mode = :content_mode,
+                 sequence_start_at = :sequence_start_at,
+                 sequence_interval_days = :sequence_interval_days,
+                 sequence_total_sends = :sequence_total_sends
+             WHERE id = :id',
+            [
+                'id' => $id,
+                'content_mode' => $data['content_mode'],
+                'sequence_start_at' => $data['sequence_start_at'],
+                'sequence_interval_days' => $data['sequence_interval_days'],
+                'sequence_total_sends' => $data['sequence_total_sends'],
+            ]
+        );
+    }
 
-
+    public function updateContentMode(int $id, string $contentMode): void
+    {
+        $this->execute(
+            'UPDATE campaigns SET content_mode = :content_mode WHERE id = :id',
+            [
+                'id' => $id,
+                'content_mode' => $contentMode,
+            ]
+        );
+    }
 }

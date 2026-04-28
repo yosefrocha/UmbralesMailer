@@ -95,7 +95,7 @@ final class SendService
 
             if ($contentMode === 'html') {
                 $htmlToSend = $htmlBody . $htmlFooter;
-                $textToSend = $textBody !== '' ? $textBody . $textFooter : strip_tags($htmlBody) . $textFooter;
+               $textToSend = ($textBody !== '' ? $textBody : strip_tags(html_entity_decode(strip_tags($htmlBody)))) . $textFooter;
             } else {
                 $textToSend = $textBody . $textFooter;
                 $htmlToSend = nl2br(htmlspecialchars($textBody, ENT_QUOTES, 'UTF-8')) . $htmlFooter;

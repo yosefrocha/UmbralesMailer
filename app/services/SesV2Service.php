@@ -55,10 +55,10 @@ final class SesV2Service
         $jsonBody = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $payloadHash = hash('sha256', $jsonBody);
 
-        $canonicalHeaders = 'content-type:application/json\n' .
-            'host:' . $host . '\n' .
-            'x-amz-content-sha256:' . $payloadHash . '\n' .
-            'x-amz-date:' . $amzDate . '\n';
+        $canonicalHeaders = "content-type:application/json\n" .
+            "host:" . $host . "\n" .
+            "x-amz-content-sha256:" . $payloadHash . "\n" .
+            "x-amz-date:" . $amzDate . "\n";
         $signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
         $canonicalRequest = "POST\n/v2/email/outbound-emails\n\n{$canonicalHeaders}\n{$signedHeaders}\n{$payloadHash}";
 

@@ -112,17 +112,17 @@
 document.addEventListener('DOMContentLoaded', function () {
     const modeText = document.getElementById('modeText');
     const modeHtml = document.getElementById('modeHtml');
+    const textArea = document.querySelector('textarea[name="text_body"]');
+    const htmlArea = document.querySelector('textarea[name="html_body"]');
 
     function toggleModeBlocks() {
         const isText = modeText.checked;
 
-        document.querySelectorAll('.text-mode-block').forEach(function (el) {
-            el.style.display = isText ? 'block' : 'none';
-        });
+        document.querySelectorAll('.text-mode-block').forEach(el => el.style.display = isText ? 'block' : 'none');
+        document.querySelectorAll('.html-mode-block').forEach(el => el.style.display = isText ? 'none' : 'block');
 
-        document.querySelectorAll('.html-mode-block').forEach(function (el) {
-            el.style.display = isText ? 'none' : 'block';
-        });
+        textArea.disabled = !isText;
+        htmlArea.disabled = isText;
     }
 
     modeText.addEventListener('change', toggleModeBlocks);
