@@ -66,6 +66,7 @@ final class App
         $this->router->get('/campaigns/{id}/preview', [CampaignsController::class, 'previewMessage'], [Auth::class, 'requireAuth']);
         $this->router->post('/campaigns/{id}/test', [CampaignsController::class, 'sendTest'], [Auth::class, 'requireAdmin']);
         $this->router->get('/campaigns/{id}/export', [CampaignsController::class, 'exportResults'], [Auth::class, 'requireAdmin']);
+        $this->router->get('/campaigns/{id}/opens', [CampaignsController::class, 'opens'], [Auth::class, 'requireAuth']);
 
         $this->router->get('/campaigns/{id}/send', [CampaignsController::class, 'sendSetup'], [Auth::class, 'requireAuth']);
         $this->router->post('/campaigns/{id}/send/start', [CampaignsController::class, 'startSend'], [Auth::class, 'requireAdmin']);
@@ -89,5 +90,6 @@ final class App
         $this->router->post('/settings/save', [SettingsController::class, 'save'], [Auth::class, 'requireAdmin']);
 
         $this->router->get('/unsubscribe/{token}', [PublicController::class, 'unsubscribe']);
+        $this->router->get('/track/open/{token}', [PublicController::class, 'trackOpen']);
     }
 }

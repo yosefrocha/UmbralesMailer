@@ -64,7 +64,7 @@ let busy = false;
 
 function statusBadge(s) {
     const map = {sent:'success', failed:'danger', pending:'secondary', processing:'primary'};
-    return `<span class="badge bg-${map[s]||'secondary'}">${s}</span>`;
+    return `<span class="badge bg-${map[s]||'secondary'}">${e(s)}</span>`;
 }
 
 function updateUI(payload) {
@@ -93,13 +93,38 @@ async function post(url, body={}) {
     const p = new URLSearchParams();
     p.append('_token', csrf);
     Object.entries(body).forEach(([k,v]) => p.append(k, v));
-    const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:p.toString()});
-    return r.json();
+    const r = await fetch(url, {
+        method:'POST',
+        headers:{
+            'Content-Type':'application/x-www-form-urlencoded',
+            'Accept':'application/json',
+            'X-Requested-With':'XMLHttpRequest'
+        },
+        body:p.toString()
+    });
+    const text = await r.text();
+    let data;
+    try {
+        data = JSON.parse(text);
+    } catch (err) {
+        throw new Error(text ? text.substring(0, 500) : 'Respuesta vacía del servidor.');
+    }
+    if (!r.ok && !data.error) {
+        data.error = 'Error HTTP ' + r.status;
+    }
+    return data;
 }
 
 async function getStatus() {
-    const r = await fetch(`/sending/${sessionId}/status`);
-    const d = await r.json();
+    const r = await fetch(`/sending/${sessionId}/status`, {headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}});
+    const text = await r.text();
+    let d;
+    try {
+        d = JSON.parse(text);
+    } catch (err) {
+        console.error('Respuesta no JSON en status:', text);
+        return;
+    }
     updateUI(d);
 }
 
@@ -118,7 +143,7 @@ async function processStep() {
         }
     } catch(ex) {
         auto = false;
-        alert('Error al comunicarse con el servidor.');
+        alert('Error al comunicarse con el servidor: ' + (ex && ex.message ? ex.message : 'sin detalle.'));
     } finally {
         busy = false;
     }

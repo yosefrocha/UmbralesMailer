@@ -45,6 +45,8 @@ final class CampaignsController extends Controller
         if (!$stats['campaign']) {
             $this->redirect('/campaigns');
         }
+        $analytics = new CampaignAnalytics();
+
         $this->view('campaigns/show', [
             'title'            => 'Detalle de campaña',
             'campaign'         => $stats['campaign'],
@@ -52,6 +54,38 @@ final class CampaignsController extends Controller
             'latestSession'    => $stats['latest_session'],
             'allSessions'      => (new SendSession())->allByCampaign($campaignId),
             'activeRecipients' => (new CampaignRecipient())->countActiveByCampaign($campaignId),
+            'campaignMetrics'  => $analytics->campaignMetrics($campaignId),
+            'campaignTimeline' => $analytics->campaignTimeline($campaignId, 14),
+        ]);
+    }
+
+    public function opens(string $id): void
+    {
+        Auth::requireAuth();
+        $campaignId = $this->intId($id);
+        $campaign   = (new Campaign())->find($campaignId);
+        if (!$campaign) {
+            $this->redirect('/campaigns');
+        }
+
+        $filter = Sanitizer::clean((string) ($_GET['filter'] ?? 'all'));
+        $search = Sanitizer::clean((string) ($_GET['search'] ?? ''));
+
+        if (!in_array($filter, ['all', 'opened', 'not_opened', 'failed', 'not_sent'], true)) {
+            $filter = 'all';
+        }
+
+        $analytics = new CampaignAnalytics();
+        $rows = $analytics->campaignRecipientOpenStatus($campaignId, $filter, $search);
+        $summary = $analytics->campaignOpenSummary($campaignId);
+
+        $this->view('campaigns/opens', [
+            'title'    => 'Aperturas de campaña',
+            'campaign' => $campaign,
+            'rows'     => $rows,
+            'summary'  => $summary,
+            'filter'   => $filter,
+            'search'   => $search,
         ]);
     }
 
@@ -250,18 +284,21 @@ final class CampaignsController extends Controller
         $search  = Sanitizer::clean((string) ($_GET['search'] ?? ''));
         $segment = Sanitizer::clean((string) ($_GET['segment'] ?? ''));
         $country = Sanitizer::clean((string) ($_GET['country'] ?? ''));
+        $institution = Sanitizer::clean((string) ($_GET['institution'] ?? ''));
 
         $this->view('campaigns/recipients', [
             'title'               => 'Destinatarios de campaña',
             'campaign'            => $campaign,
             'recipients'          => $campaignRecipientModel->allByCampaign($campaignId),
             'assignedCount'       => $campaignRecipientModel->countActiveByCampaign($campaignId),
-            'availableRecipients' => $recipientModel->availableForCampaign($campaignId, $search, $segment, $country),
+            'availableRecipients' => $recipientModel->availableForCampaign($campaignId, $search, $segment, $country, $institution),
             'segments'            => $recipientModel->getSegments(),
             'countries'           => $recipientModel->getCountries(),
+            'institutions'        => $recipientModel->getInstitutions(),
             'search'              => $search,
             'segment'             => $segment,
             'country'             => $country,
+            'institution'         => $institution,
             'error'               => Session::getFlash('error'),
             'success'             => Session::getFlash('success'),
             'importResult'        => Session::getFlash('import_result'),
@@ -278,11 +315,13 @@ final class CampaignsController extends Controller
         $search      = Sanitizer::clean((string) $this->post('search'));
         $segment     = Sanitizer::clean((string) $this->post('segment'));
         $country     = Sanitizer::clean((string) $this->post('country'));
+        $institution = Sanitizer::clean((string) $this->post('institution'));
 
         $query = '?tab=assign'
             . ($search  !== '' ? '&search='  . urlencode($search)  : '')
             . ($segment !== '' ? '&segment=' . urlencode($segment) : '')
-            . ($country !== '' ? '&country=' . urlencode($country) : '');
+            . ($country !== '' ? '&country=' . urlencode($country) : '')
+            . ($institution !== '' ? '&institution=' . urlencode($institution) : '');
 
         if ($recipientId <= 0) {
             Session::flash('error', 'Destinatario inválido.');
@@ -301,9 +340,10 @@ final class CampaignsController extends Controller
         $campaignId = $this->intId($id);
         $segment    = Sanitizer::clean((string) $this->post('segment'));
         $country    = Sanitizer::clean((string) $this->post('country'));
+        $institution = Sanitizer::clean((string) $this->post('institution'));
 
         $recipientModel = new Recipient();
-        $available      = $recipientModel->availableForCampaign($campaignId, '', $segment, $country);
+        $available      = $recipientModel->availableForCampaign($campaignId, '', $segment, $country, $institution);
 
         $campaignRecipientModel = new CampaignRecipient();
         $count = 0;
@@ -313,7 +353,11 @@ final class CampaignsController extends Controller
         }
 
         Session::flash('success', "{$count} destinatarios asignados correctamente.");
-        $this->redirect('/campaigns/' . $campaignId . '/recipients?tab=assigned');
+        $query = '?tab=assign'
+            . ($segment !== '' ? '&segment=' . urlencode($segment) : '')
+            . ($country !== '' ? '&country=' . urlencode($country) : '')
+            . ($institution !== '' ? '&institution=' . urlencode($institution) : '');
+        $this->redirect('/campaigns/' . $campaignId . '/recipients' . $query);
     }
 
     public function importRecipients(string $id): void
@@ -333,16 +377,24 @@ final class CampaignsController extends Controller
 
         try {
             $service = new CampaignRecipientImportService();
+            $validation = $service->validate($_FILES['csv']['tmp_name']);
+            if (!empty($validation['errors'])) {
+                Session::flash('error', 'El CSV tiene errores. No se guardó ningún destinatario.');
+                Session::flash('validation_result', $validation);
+                $this->redirect('/campaigns/' . $campaignId . '/recipients?tab=import');
+            }
+
             $result  = $service->import(
                 $campaignId,
                 $_FILES['csv']['tmp_name'],
                 (string) $_FILES['csv']['name'],
                 (int) (Auth::user()['id'] ?? 0)
             );
-            Session::flash('success', 'Destinatarios importados correctamente.');
+            Session::flash('success', 'Destinatarios importados y asignados correctamente.');
             Session::flash('import_result', $result);
         } catch (Throwable $e) {
             Session::flash('error', 'Error al importar: ' . $e->getMessage());
+            $this->redirect('/campaigns/' . $campaignId . '/recipients?tab=import');
         }
 
         $this->redirect('/campaigns/' . $campaignId . '/recipients?tab=assigned');
@@ -475,41 +527,18 @@ final class CampaignsController extends Controller
             $this->redirect('/campaigns/' . $campaignId . '/recipients?tab=import');
         }
 
-        $handle   = fopen($_FILES['csv']['tmp_name'], 'r');
-        $header   = fgetcsv($handle);
-        $expected = ['correo', 'nombre', 'apellido', 'inst', 'pais', 'segmento', 'estado', 'consent'];
-        $errors   = [];
-        $valid    = 0;
-        $line     = 1;
-
-        if (array_map('trim', $header) !== $expected) {
-            Session::flash('validation_result', ['valid' => 0, 'errors' => ['La cabecera del CSV no es correcta.']]);
-            fclose($handle);
-            $this->redirect('/campaigns/' . $campaignId . '/recipients?tab=import');
-        }
-
-        while (($row = fgetcsv($handle)) !== false) {
-            $line++;
-            if (count(array_filter($row, fn($v) => trim((string)$v) !== '')) === 0) continue;
-
-            $data = [
-                'email'      => trim((string)($row[0] ?? '')),
-                'first_name' => trim((string)($row[1] ?? '')),
-                'last_name'  => trim((string)($row[2] ?? '')),
-            ];
-
-            $rowErrors = Recipient::validate($data);
-            if (!empty($rowErrors)) {
-                foreach ($rowErrors as $e) {
-                    $errors[] = "Fila {$line}: {$e}";
-                }
+        try {
+            $validation = (new CampaignRecipientImportService())->validate($_FILES['csv']['tmp_name']);
+            Session::flash('validation_result', $validation);
+            if (!empty($validation['errors'])) {
+                Session::flash('error', 'El CSV contiene errores. Corrígelos antes de importar.');
             } else {
-                $valid++;
+                Session::flash('success', 'Validación correcta. El archivo está listo para importar.');
             }
+        } catch (Throwable $e) {
+            Session::flash('error', 'Error al validar: ' . $e->getMessage());
         }
 
-        fclose($handle);
-        Session::flash('validation_result', ['valid' => $valid, 'errors' => $errors]);
         $this->redirect('/campaigns/' . $campaignId . '/recipients?tab=import');
     }
 

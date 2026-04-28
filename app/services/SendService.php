@@ -83,6 +83,7 @@ final class SendService
         $settings = (new SettingsService())->all();
         $recipientModel = new Recipient();
         $ses = new SesV2Service();
+        $tracker = new CampaignTrackingService();
         $batch = $sessionModel->getPendingItems($sessionId, $limit);
 
         $appConfig = require CONFIG_PATH . '/app.php';
@@ -131,6 +132,8 @@ final class SendService
                 $textToSend = $textBody . $textFooter;
                 $htmlToSend = nl2br(htmlspecialchars($textBody, ENT_QUOTES, 'UTF-8')) . $htmlFooter;
             }
+
+            $htmlToSend = $this->appendTrackingPixel($htmlToSend, $tracker->trackingPixel('ssi', (int) $item['id'], (int) $session['campaign_id'], (int) $item['recipient_id']));
 
             $result = $ses->send($settings, [
                 'to_email'          => $item['email'],
@@ -198,6 +201,19 @@ final class SendService
             'html_body'         => $htmlToSend,
             'text_body'         => $textToSend,
         ]);
+    }
+
+    private function appendTrackingPixel(string $html, string $pixel): string
+    {
+        if (stripos($html, "</body>") !== false) {
+            return preg_replace("~</body>~i", $pixel . "</body>", $html, 1) ?? ($html . $pixel);
+        }
+
+        if (stripos($html, "</html>") !== false) {
+            return preg_replace("~</html>~i", $pixel . "</html>", $html, 1) ?? ($html . $pixel);
+        }
+
+        return $html . $pixel;
     }
 
     private function bounceRateExceeded(array $counts): bool

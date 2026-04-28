@@ -73,6 +73,12 @@ final class Recipient extends Model
         return array_column($rows, 'country');
     }
 
+    public function getInstitutions(): array
+    {
+        $rows = $this->fetchAll('SELECT DISTINCT institution FROM recipients WHERE institution IS NOT NULL AND institution != "" ORDER BY institution');
+        return array_column($rows, 'institution');
+    }
+
     /**
      * Valida los datos de un destinatario antes de guardar
      */
@@ -207,7 +213,7 @@ final class Recipient extends Model
     /**
      * Destinatarios disponibles para asignar a una campaña (que no estén ya asignados)
      */
-    public function availableForCampaign(int $campaignId, string $search = '', string $segment = '', string $country = ''): array
+    public function availableForCampaign(int $campaignId, string $search = '', string $segment = '', string $country = '', string $institution = ''): array
     {
         $sql = 'SELECT r.* FROM recipients r
                 WHERE r.status = "active" AND r.unsubscribed_at IS NULL
@@ -231,6 +237,11 @@ final class Recipient extends Model
         if ($country !== '') {
             $sql .= ' AND r.country = :country';
             $params['country'] = $country;
+        }
+
+        if ($institution !== '') {
+            $sql .= ' AND r.institution = :institution';
+            $params['institution'] = $institution;
         }
 
         $sql .= ' ORDER BY r.id DESC LIMIT 500';

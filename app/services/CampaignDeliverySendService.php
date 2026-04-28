@@ -11,6 +11,7 @@ final class CampaignDeliverySendService
         $settings = (new SettingsService())->all();
         $recipientModel = new Recipient();
         $ses = new SesV2Service();
+        $tracker = new CampaignTrackingService();
 
         $appConfig = require CONFIG_PATH . '/app.php';
         $baseUrl = rtrim((string) ($appConfig['base_url'] ?? ''), '/');
@@ -69,6 +70,8 @@ final class CampaignDeliverySendService
                 $htmlToSend = nl2br(htmlspecialchars($textBody, ENT_QUOTES, 'UTF-8')) . $htmlFooter;
             }
 
+            $htmlToSend = $this->appendTrackingPixel($htmlToSend, $tracker->trackingPixel('cd', (int) $row['id'], (int) $row['campaign_id'], (int) $row['recipient_id']));
+
             $result = $ses->send($settings, [
                 'to_email' => $row['email'],
                 'from_name' => $message['from_name'] ?: ($settings['ses_from_name'] ?? 'Equipo Umbrales'),
@@ -95,5 +98,18 @@ final class CampaignDeliverySendService
             'failed' => $failed,
             'skipped' => $skipped,
         ];
+    }
+
+    private function appendTrackingPixel(string $html, string $pixel): string
+    {
+        if (stripos($html, "</body>") !== false) {
+            return preg_replace("~</body>~i", $pixel . "</body>", $html, 1) ?? ($html . $pixel);
+        }
+
+        if (stripos($html, "</html>") !== false) {
+            return preg_replace("~</html>~i", $pixel . "</html>", $html, 1) ?? ($html . $pixel);
+        }
+
+        return $html . $pixel;
     }
 }

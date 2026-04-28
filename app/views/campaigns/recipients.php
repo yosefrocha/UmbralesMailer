@@ -8,18 +8,6 @@
     <a href="/campaigns/<?= (int) $campaign['id'] ?>" class="btn btn-outline-secondary">Volver</a>
 </div>
 
-<?php if (!empty($error)): ?>
-    <div class="alert alert-danger alert-dismissible fade show">
-        <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-<?php endif; ?>
-<?php if (!empty($success)): ?>
-    <div class="alert alert-success alert-dismissible fade show">
-        <?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-<?php endif; ?>
 
 <ul class="nav nav-tabs mb-4" id="recipientTabs" role="tablist">
     <li class="nav-item" role="presentation">

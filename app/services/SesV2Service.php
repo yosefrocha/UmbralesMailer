@@ -20,8 +20,14 @@ final class SesV2Service
         $amzDate = gmdate('Ymd\THis\Z');
         $dateStamp = gmdate('Ymd');
 
+        $fromName = trim((string) ($payload['from_name'] ?? ''));
+        $fromEmail = trim((string) ($payload['from_email'] ?? ''));
+        $fromAddress = $fromName !== ''
+            ? sprintf('%s <%s>', $this->encodeDisplayName($fromName), $fromEmail)
+            : $fromEmail;
+
         $body = [
-            'FromEmailAddress' => sprintf('%s <%s>', $payload['from_name'], $payload['from_email']),
+            'FromEmailAddress' => $fromAddress,
             'Destination' => [
                 'ToAddresses' => [$payload['to_email']],
             ],
@@ -53,14 +59,21 @@ final class SesV2Service
         }
 
         $jsonBody = json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($jsonBody === false) {
+            return ['ok' => false, 'error' => 'No se pudo codificar el cuerpo del correo para SES.'];
+        }
+
         $payloadHash = hash('sha256', $jsonBody);
 
-        $canonicalHeaders = 'content-type:application/json\n' .
-            'host:' . $host . '\n' .
-            'x-amz-content-sha256:' . $payloadHash . '\n' .
-            'x-amz-date:' . $amzDate . '\n';
+        // IMPORTANTE: AWS Signature V4 exige saltos de linea reales en canonicalHeaders.
+        // No deben usarse cadenas con '\n' literal, porque SES calcula una firma distinta.
+        $canonicalHeaders = "content-type:application/json\n" .
+            "host:" . $host . "\n" .
+            "x-amz-content-sha256:" . $payloadHash . "\n" .
+            "x-amz-date:" . $amzDate . "\n";
+
         $signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
-        $canonicalRequest = "POST\n/v2/email/outbound-emails\n\n{$canonicalHeaders}\n{$signedHeaders}\n{$payloadHash}";
+        $canonicalRequest = "POST\n/v2/email/outbound-emails\n\n" . $canonicalHeaders . "\n" . $signedHeaders . "\n" . $payloadHash;
 
         $algorithm = 'AWS4-HMAC-SHA256';
         $credentialScope = $dateStamp . '/' . $region . '/' . $service . '/aws4_request';
@@ -105,6 +118,15 @@ final class SesV2Service
         $message = $decoded['message'] ?? $decoded['Message'] ?? ('HTTP ' . $status);
         AuditLogger::logFile('ses-http', $message . ' | body=' . (string) $response);
         return ['ok' => false, 'error' => $message];
+    }
+
+    private function encodeDisplayName(string $name): string
+    {
+        if (preg_match('/[^A-Za-z0-9 ._-]/', $name)) {
+            return '=?UTF-8?B?' . base64_encode($name) . '?=';
+        }
+
+        return '"' . addcslashes($name, '"\\') . '"';
     }
 
     private function getSignatureKey(string $key, string $dateStamp, string $regionName, string $serviceName): string
