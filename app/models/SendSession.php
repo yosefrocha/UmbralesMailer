@@ -176,4 +176,26 @@ final class SendSession extends Model
 
         return $this->fetchAll($sql, ['session_id' => $sessionId]);
     }
+
+    public function resetFailedItems(int $sessionId): void
+    {
+        $this->execute(
+            'UPDATE send_session_items
+             SET status = "pending",
+                 error_message = NULL,
+                 processed_at = NULL,
+                 updated_at = NOW()
+             WHERE send_session_id = :session_id
+               AND status = "failed"',
+            ['session_id' => $sessionId]
+        );
+    }
+
+    public function allByCampaign(int $campaignId): array
+    {
+        return $this->fetchAll(
+            'SELECT * FROM send_sessions WHERE campaign_id = :campaign_id ORDER BY id DESC',
+            ['campaign_id' => $campaignId]
+        );
+    }
 }

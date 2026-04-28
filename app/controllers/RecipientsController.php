@@ -107,4 +107,20 @@ public function downloadTemplate(): void
 {
     CsvTemplateService::downloadRecipientsTemplate();
 }
+
+    public function history(string $id): void
+    {
+        Auth::requireAuth();
+        $recipientId = $this->intId($id);
+        $recipient = (new Recipient())->find($recipientId);
+        if (!$recipient) {
+            $this->redirect('/recipients');
+        }
+        $this->view('recipients/history', [
+            'title' => 'Historial de campañas',
+            'recipient' => $recipient,
+            'history' => (new Recipient())->campaignHistory($recipientId),
+        ]);
+    }
+
 }

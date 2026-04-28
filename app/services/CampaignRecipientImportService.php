@@ -37,23 +37,33 @@ final class CampaignRecipientImportService
         $imported = 0;
         $failed = 0;
 
-        while (($row = fgetcsv($handle)) !== false) {
-            if (count(array_filter($row, static fn ($value) => trim((string) $value) !== '')) === 0) {
+       while (($row = fgetcsv($handle)) !== false) {
+        if (count(array_filter($row, static fn ($value) => trim((string) $value) !== '')) === 0) {
+            continue;
+        }
+        // Convertir encoding si es necesario
+        $row = array_map(function($val) {
+            if (!mb_detect_encoding($val, 'UTF-8', true)) {
+                return mb_convert_encoding((string)$val, 'UTF-8', 'ISO-8859-1');
+            }
+            return (string)$val;
+        }, $row);
+        $total++;
+        $data = [
+        'email'       => Sanitizer::email((string) ($row[0] ?? '')),
+        'first_name'  => Sanitizer::name((string) ($row[1] ?? '')),
+        'last_name'   => Sanitizer::name((string) ($row[2] ?? '')),
+        'institution' => Sanitizer::clean((string) ($row[3] ?? '')),
+        'country'     => Sanitizer::clean((string) ($row[4] ?? '')),
+        'segment'     => Sanitizer::clean((string) ($row[5] ?? '')),
+        'status'      => $this->normalizeStatus((string) ($row[6] ?? '')),
+        'consent_at'  => Sanitizer::clean((string) ($row[7] ?? '')),
+    ];
+            
+            if (Sanitizer::isSuspicious($data['first_name']) || Sanitizer::isSuspicious($data['last_name'])) {
+                $failed++;
                 continue;
             }
-
-            $total++;
-
-            $data = [
-                'email' => trim((string) ($row[0] ?? '')),
-                'first_name' => trim((string) ($row[1] ?? '')),
-                'last_name' => trim((string) ($row[2] ?? '')),
-                'institution' => trim((string) ($row[3] ?? '')),
-                'country' => trim((string) ($row[4] ?? '')),
-                'segment' => trim((string) ($row[5] ?? '')),
-                'status' => $this->normalizeStatus((string) ($row[6] ?? '')),
-                'consent_at' => trim((string) ($row[7] ?? '')),
-            ];
 
             if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
                 $failed++;

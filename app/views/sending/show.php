@@ -7,23 +7,24 @@
 </div>
 
 <div class="row g-4 mb-4">
-    <div class="col-md-3"><div class="card stat-card"><div class="card-body"><div class="text-muted small">Estado</div><div class="h5 mb-0" id="js-status"><?= htmlspecialchars($session['status'], ENT_QUOTES, 'UTF-8') ?></div></div></div></div>
-    <div class="col-md-3"><div class="card stat-card"><div class="card-body"><div class="text-muted small">Procesados</div><div class="h5 mb-0"><span id="js-processed"><?= (int) $session['processed_count'] ?></span> / <span id="js-total"><?= (int) $session['total_count'] ?></span></div></div></div></div>
-    <div class="col-md-3"><div class="card stat-card"><div class="card-body"><div class="text-muted small">Enviados</div><div class="h5 mb-0" id="js-success"><?= (int) $session['success_count'] ?></div></div></div></div>
-    <div class="col-md-3"><div class="card stat-card"><div class="card-body"><div class="text-muted small">Fallidos</div><div class="h5 mb-0" id="js-failed"><?= (int) $session['failed_count'] ?></div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card stat-card"><div class="card-body"><div class="text-muted small">Estado</div><div class="h5 mb-0" id="js-status"><?= htmlspecialchars($session['status'], ENT_QUOTES, 'UTF-8') ?></div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card stat-card"><div class="card-body"><div class="text-muted small">Procesados</div><div class="h5 mb-0"><span id="js-processed"><?= (int) $session['processed_count'] ?></span> / <span id="js-total"><?= (int) $session['total_count'] ?></span></div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card stat-card"><div class="card-body"><div class="text-muted small">Enviados ✓</div><div class="h5 mb-0 text-success" id="js-success"><?= (int) $session['success_count'] ?></div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card stat-card"><div class="card-body"><div class="text-muted small">Fallidos ✗</div><div class="h5 mb-0 text-danger" id="js-failed"><?= (int) $session['failed_count'] ?></div></div></div></div>
 </div>
 
 <div class="card border-0 shadow-sm mb-4"><div class="card-body">
-    <div class="progress mb-3" role="progressbar" aria-label="Progreso de envío">
-        <div class="progress-bar" id="js-progress-bar" style="width: <?= (int) ($session['total_count'] > 0 ? round(((int) $session['processed_count'] / max(1, (int) $session['total_count'])) * 100) : 0) ?>%"></div>
+    <div class="progress mb-3" role="progressbar">
+        <div class="progress-bar bg-success" id="js-progress-bar" style="width: <?= (int) ($session['total_count'] > 0 ? round(((int) $session['processed_count'] / max(1, (int) $session['total_count'])) * 100) : 0) ?>%"></div>
     </div>
     <div class="d-flex flex-wrap gap-2">
         <button class="btn btn-primary" id="js-start">Procesar siguiente lote</button>
         <button class="btn btn-outline-primary" id="js-auto">Auto procesar</button>
         <button class="btn btn-outline-warning" id="js-pause">Pausar</button>
         <button class="btn btn-outline-success" id="js-resume">Reanudar</button>
+        <button class="btn btn-outline-danger" id="js-retry">Reintentar fallidos</button>
     </div>
-    <p class="small text-muted mt-3 mb-0">Esta pantalla procesa lotes de <?= (int) $batchSize ?> destinatarios por solicitud para evitar timeouts del hosting.</p>
+    <p class="small text-muted mt-3 mb-0">Procesa lotes de <?= (int) $batchSize ?> destinatarios por solicitud. El envío se detiene automáticamente si la tasa de rebotes supera el 5%.</p>
 </div></div>
 
 <div class="card border-0 shadow-sm"><div class="card-body">
@@ -36,9 +37,17 @@
                 <tr>
                     <td>#<?= (int) $item['id'] ?></td>
                     <td><?= htmlspecialchars($item['email'], ENT_QUOTES, 'UTF-8') ?></td>
-                    <td><?= htmlspecialchars($item['status'], ENT_QUOTES, 'UTF-8') ?></td>
-                    <td><?= htmlspecialchars((string) ($item['error_message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                    <td><?= htmlspecialchars((string) ($item['processed_at'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
+                    <td>
+                        <?php if ($item['status'] === 'sent'): ?>
+                            <span class="badge bg-success">enviado</span>
+                        <?php elseif ($item['status'] === 'failed'): ?>
+                            <span class="badge bg-danger">fallido</span>
+                        <?php else: ?>
+                            <span class="badge bg-secondary"><?= htmlspecialchars($item['status'], ENT_QUOTES, 'UTF-8') ?></span>
+                        <?php endif; ?>
+                    </td>
+                    <td class="small text-danger"><?= htmlspecialchars((string) ($item['error_message'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
+                    <td class="small"><?= htmlspecialchars((string) ($item['processed_at'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
@@ -53,66 +62,61 @@ const batchSize = <?= (int) $batchSize ?>;
 let auto = false;
 let busy = false;
 
+function statusBadge(s) {
+    const map = {sent:'success', failed:'danger', pending:'secondary', processing:'primary'};
+    return `<span class="badge bg-${map[s]||'secondary'}">${s}</span>`;
+}
+
 function updateUI(payload) {
-    const session = payload.session;
-    document.getElementById('js-status').textContent = session.status;
-    document.getElementById('js-processed').textContent = session.processed_count;
-    document.getElementById('js-total').textContent = session.total_count;
-    document.getElementById('js-success').textContent = session.success_count;
-    document.getElementById('js-failed').textContent = session.failed_count;
-    const percent = session.total_count > 0 ? Math.round((session.processed_count / session.total_count) * 100) : 0;
-    document.getElementById('js-progress-bar').style.width = percent + '%';
+    const s = payload.session;
+    document.getElementById('js-status').textContent = s.status;
+    document.getElementById('js-processed').textContent = s.processed_count;
+    document.getElementById('js-total').textContent = s.total_count;
+    document.getElementById('js-success').textContent = s.success_count;
+    document.getElementById('js-failed').textContent = s.failed_count;
+    const pct = s.total_count > 0 ? Math.round((s.processed_count / s.total_count) * 100) : 0;
+    document.getElementById('js-progress-bar').style.width = pct + '%';
     const tbody = document.querySelector('#js-items-table tbody');
     tbody.innerHTML = '';
-    payload.items.forEach(item => {
+    (payload.items || []).forEach(item => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>#${item.id}</td><td>${escapeHtml(item.email)}</td><td>${escapeHtml(item.status)}</td><td>${escapeHtml(item.error_message || '')}</td><td>${escapeHtml(item.processed_at || '—')}</td>`;
+        tr.innerHTML = `<td>#${item.id}</td><td>${e(item.email)}</td><td>${statusBadge(item.status)}</td><td class="small text-danger">${e(item.error_message||'')}</td><td class="small">${e(item.processed_at||'—')}</td>`;
         tbody.appendChild(tr);
     });
 }
 
-function escapeHtml(value) {
-    return String(value)
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
+function e(v) {
+    return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-async function postAction(url, body = {}) {
-    const params = new URLSearchParams();
-    params.append('_token', csrf);
-    Object.entries(body).forEach(([k, v]) => params.append(k, v));
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: params.toString()
-    });
-    return response.json();
+async function post(url, body={}) {
+    const p = new URLSearchParams();
+    p.append('_token', csrf);
+    Object.entries(body).forEach(([k,v]) => p.append(k, v));
+    const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:p.toString()});
+    return r.json();
 }
 
-async function refreshStatus() {
-    const response = await fetch(`/sending/${sessionId}/status`);
-    const data = await response.json();
-    updateUI(data);
+async function getStatus() {
+    const r = await fetch(`/sending/${sessionId}/status`);
+    const d = await r.json();
+    updateUI(d);
 }
 
 async function processStep() {
     if (busy) return;
     busy = true;
     try {
-        const data = await postAction(`/sending/${sessionId}/process`, {limit: batchSize});
-        if (data.ok) {
-            updateUI(data);
-            if (auto && data.session.status === 'processing') {
-                setTimeout(processStep, 500);
-            }
+        const d = await post(`/sending/${sessionId}/process`, {limit: batchSize});
+        if (d.ok) {
+            updateUI(d);
+            if (auto && d.session.status === 'processing') setTimeout(processStep, 800);
+            else auto = false;
         } else {
             auto = false;
-            alert(data.error || 'Error al procesar lote.');
+            alert(d.error || 'Error al procesar lote.');
         }
-    } catch (e) {
+    } catch(ex) {
         auto = false;
         alert('Error al comunicarse con el servidor.');
     } finally {
@@ -122,7 +126,14 @@ async function processStep() {
 
 document.getElementById('js-start').addEventListener('click', () => { auto = false; processStep(); });
 document.getElementById('js-auto').addEventListener('click', () => { auto = true; processStep(); });
-document.getElementById('js-pause').addEventListener('click', async () => { auto = false; await postAction(`/sending/${sessionId}/pause`); refreshStatus(); });
-document.getElementById('js-resume').addEventListener('click', async () => { await postAction(`/sending/${sessionId}/resume`); refreshStatus(); });
-setInterval(refreshStatus, 5000);
+document.getElementById('js-pause').addEventListener('click', async () => { auto = false; await post(`/sending/${sessionId}/pause`); getStatus(); });
+document.getElementById('js-resume').addEventListener('click', async () => { await post(`/sending/${sessionId}/resume`); getStatus(); });
+document.getElementById('js-retry').addEventListener('click', async () => {
+    if (!confirm('¿Reintentar todos los envíos fallidos?')) return;
+    const d = await post(`/sending/${sessionId}/retry`);
+    if (d.ok) { updateUI({session: d.session, items: []}); alert('Fallidos reseteados. Haz clic en "Procesar siguiente lote" para reenviar.'); }
+    else alert(d.error || 'Error al reintentar.');
+});
+
+setInterval(getStatus, 5000);
 </script>

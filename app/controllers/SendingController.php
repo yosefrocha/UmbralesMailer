@@ -6,6 +6,7 @@ final class SendingController extends Controller
 {
     public function show(string $id): void
     {
+        Auth::requireAuth();
         $sessionId = $this->intId($id);
         $sessionModel = new SendSession();
         $session = $sessionModel->find($sessionId);
@@ -23,6 +24,7 @@ final class SendingController extends Controller
 
     public function status(string $id): void
     {
+        Auth::requireAuth();
         $sessionId = $this->intId($id);
         $sessionModel = new SendSession();
         $session = $sessionModel->refreshCounts($sessionId);
@@ -33,6 +35,7 @@ final class SendingController extends Controller
     public function process(string $id): void
     {
         $this->requireCsrf();
+        Auth::requireAuth();
         $sessionId = $this->intId($id);
         $limit = max(1, (int) $this->post('limit', 10));
         try {
@@ -44,9 +47,23 @@ final class SendingController extends Controller
         }
     }
 
+    public function retryFailed(string $id): void
+    {
+        $this->requireCsrf();
+        Auth::requireAuth();
+        $sessionId = $this->intId($id);
+        try {
+            $session = (new SendService())->retryFailed($sessionId);
+            $this->json(['ok' => true, 'session' => $session]);
+        } catch (Throwable $e) {
+            $this->json(['ok' => false, 'error' => $e->getMessage()], 500);
+        }
+    }
+
     public function pause(string $id): void
     {
         $this->requireCsrf();
+        Auth::requireAuth();
         $sessionId = $this->intId($id);
         (new SendSession())->setStatus($sessionId, 'paused');
         AuditLogger::log('send.paused', 'send_session', $sessionId);
@@ -56,6 +73,7 @@ final class SendingController extends Controller
     public function resume(string $id): void
     {
         $this->requireCsrf();
+        Auth::requireAuth();
         $sessionId = $this->intId($id);
         (new SendSession())->setStatus($sessionId, 'processing');
         AuditLogger::log('send.resumed', 'send_session', $sessionId);
