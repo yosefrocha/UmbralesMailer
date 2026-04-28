@@ -31,6 +31,7 @@ $timeline = $campaignTimeline ?? [];
         <a href="/campaigns/<?= (int) $campaign['id'] ?>/message" class="btn btn-primary">Mensaje</a>
         <a href="/campaigns/<?= (int) $campaign['id'] ?>/recipients" class="btn btn-outline-primary">Destinatarios</a>
         <a href="/campaigns/<?= (int) $campaign['id'] ?>/opens" class="btn btn-outline-success">Aperturas</a>
+        <a href="/campaigns/<?= (int) $campaign['id'] ?>/schedule" class="btn btn-outline-dark">Envío programado</a>
     </div>
 </div>
 
@@ -180,6 +181,10 @@ $timeline = $campaignTimeline ?? [];
 
                     <a href="/campaigns/<?= (int) $campaign['id'] ?>/opens" class="btn btn-outline-success">
                         Ver quién abrió
+                    </a>
+
+                    <a href="/campaigns/<?= (int) $campaign['id'] ?>/schedule" class="btn btn-outline-dark">
+                        Envío programado
                     </a>
 
                     <?php if ($campaign['status'] === 'active'): ?>

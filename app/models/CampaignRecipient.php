@@ -22,10 +22,14 @@ final class CampaignRecipient extends Model
 
     public function allByCampaign(int $campaignId): array
     {
+        $selectExtra = $this->hasColumn('campaign_recipients', 'responded_at')
+            ? ', cr.responded_at, cr.response_note, cr.stopped_at, cr.stop_reason'
+            : ', NULL AS responded_at, NULL AS response_note, NULL AS stopped_at, NULL AS stop_reason';
+
         return $this->fetchAll(
             'SELECT cr.id AS campaign_recipient_id,
                     cr.status AS campaign_status,
-                    cr.assigned_at,
+                    cr.assigned_at' . $selectExtra . ',
                     r.*
              FROM campaign_recipients cr
              INNER JOIN recipients r ON r.id = cr.recipient_id
@@ -79,6 +83,26 @@ final class CampaignRecipient extends Model
 
     public function remove(int $campaignId, int $recipientId): void
     {
+        if ($this->hasColumn('campaign_recipients', 'stopped_at')) {
+            $this->execute(
+                'UPDATE campaign_recipients
+                 SET status = "removed",
+                     stopped_at = NOW(),
+                     stop_reason = "Eliminado de la campana activa"
+                 WHERE campaign_id = :campaign_id
+                   AND recipient_id = :recipient_id',
+                [
+                    'campaign_id' => $campaignId,
+                    'recipient_id' => $recipientId,
+                ]
+            );
+
+            if (class_exists('CampaignDelivery')) {
+                (new CampaignDelivery())->skipPendingForRecipient($campaignId, $recipientId, 'Destinatario eliminado de la campana activa.');
+            }
+            return;
+        }
+
         $this->execute(
             'DELETE FROM campaign_recipients
              WHERE campaign_id = :campaign_id
@@ -104,21 +128,97 @@ final class CampaignRecipient extends Model
             ['campaign_id' => $campaignId]
         );
     }
-    
-    public function recipientIdsForScheduling(int $campaignId): array
-{
-    $rows = $this->fetchAll(
-        'SELECT recipient_id
-         FROM campaign_recipients
-         WHERE campaign_id = :campaign_id
-           AND status = "active"
-         ORDER BY id ASC',
-        ['campaign_id' => $campaignId]
-    );
 
-    return array_map(
-        static fn (array $row): int => (int) $row['recipient_id'],
-        $rows
-    );
-}
+    public function recipientIdsForScheduling(int $campaignId): array
+    {
+        $respondedFilter = $this->hasColumn('campaign_recipients', 'responded_at')
+            ? ' AND cr.responded_at IS NULL'
+            : '';
+
+        $rows = $this->fetchAll(
+            'SELECT cr.recipient_id
+             FROM campaign_recipients cr
+             INNER JOIN recipients r ON r.id = cr.recipient_id
+             WHERE cr.campaign_id = :campaign_id
+               AND cr.status = "active"
+               AND r.status = "active"
+               AND r.unsubscribed_at IS NULL' . $respondedFilter . '
+             ORDER BY cr.id ASC',
+            ['campaign_id' => $campaignId]
+        );
+
+        return array_map(
+            static fn (array $row): int => (int) $row['recipient_id'],
+            $rows
+        );
+    }
+
+    public function markResponded(int $campaignId, int $recipientId, string $note = ''): void
+    {
+        $this->requireResponseColumns();
+
+        $this->execute(
+            'UPDATE campaign_recipients
+             SET responded_at = NOW(),
+                 response_note = :response_note,
+                 stopped_at = NOW(),
+                 stop_reason = "Respondio",
+                 updated_at = NOW()
+             WHERE campaign_id = :campaign_id
+               AND recipient_id = :recipient_id',
+            [
+                'campaign_id' => $campaignId,
+                'recipient_id' => $recipientId,
+                'response_note' => mb_substr($note, 0, 500),
+            ]
+        );
+
+        if (class_exists('CampaignDelivery')) {
+            (new CampaignDelivery())->skipPendingForRecipient($campaignId, $recipientId, 'Destinatario respondio. Secuencia detenida.');
+        }
+    }
+
+    public function clearResponded(int $campaignId, int $recipientId): void
+    {
+        $this->requireResponseColumns();
+
+        $this->execute(
+            'UPDATE campaign_recipients
+             SET responded_at = NULL,
+                 response_note = NULL,
+                 stopped_at = NULL,
+                 stop_reason = NULL,
+                 updated_at = NOW()
+             WHERE campaign_id = :campaign_id
+               AND recipient_id = :recipient_id',
+            [
+                'campaign_id' => $campaignId,
+                'recipient_id' => $recipientId,
+            ]
+        );
+    }
+
+    private function hasColumn(string $table, string $column): bool
+    {
+        try {
+            $row = $this->fetchOne(
+                'SELECT COUNT(*) AS total
+                 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = :table_name
+                   AND COLUMN_NAME = :column_name',
+                ['table_name' => $table, 'column_name' => $column]
+            );
+            return (int) ($row['total'] ?? 0) > 0;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    private function requireResponseColumns(): void
+    {
+        if (!$this->hasColumn('campaign_recipients', 'responded_at')) {
+            throw new RuntimeException('Falta ejecutar la migracion de secuencia: campaign_recipients.responded_at.');
+        }
+    }
 }

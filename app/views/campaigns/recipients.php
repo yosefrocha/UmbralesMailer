@@ -8,20 +8,33 @@
     <a href="/campaigns/<?= (int) $campaign['id'] ?>" class="btn btn-outline-secondary">Volver</a>
 </div>
 
+<?php
+$activeTab = (string)($_GET['tab'] ?? 'assigned');
+if (!in_array($activeTab, ['assigned', 'assign', 'import'], true)) {
+    $activeTab = 'assigned';
+}
+$search = (string)($search ?? '');
+$segment = (string)($segment ?? '');
+$country = (string)($country ?? '');
+$institution = (string)($institution ?? '');
+$segments = $segments ?? [];
+$countries = $countries ?? [];
+$institutions = $institutions ?? [];
+?>
 
 <ul class="nav nav-tabs mb-4" id="recipientTabs" role="tablist">
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="tab-assigned-btn" data-bs-toggle="tab" data-bs-target="#tab-assigned" type="button" role="tab">
+        <button class="nav-link <?= $activeTab === 'assigned' ? 'active' : '' ?>" id="tab-assigned-btn" data-bs-toggle="tab" data-bs-target="#tab-assigned" type="button" role="tab" aria-controls="tab-assigned" aria-selected="<?= $activeTab === 'assigned' ? 'true' : 'false' ?>">
             Asignados (<?= (int) $assignedCount ?>)
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="tab-assign-btn" data-bs-toggle="tab" data-bs-target="#tab-assign" type="button" role="tab">
+        <button class="nav-link <?= $activeTab === 'assign' ? 'active' : '' ?>" id="tab-assign-btn" data-bs-toggle="tab" data-bs-target="#tab-assign" type="button" role="tab" aria-controls="tab-assign" aria-selected="<?= $activeTab === 'assign' ? 'true' : 'false' ?>">
             Asignar existentes
         </button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="tab-import-btn" data-bs-toggle="tab" data-bs-target="#tab-import" type="button" role="tab">
+        <button class="nav-link <?= $activeTab === 'import' ? 'active' : '' ?>" id="tab-import-btn" data-bs-toggle="tab" data-bs-target="#tab-import" type="button" role="tab" aria-controls="tab-import" aria-selected="<?= $activeTab === 'import' ? 'true' : 'false' ?>">
             Importar CSV
         </button>
     </li>
@@ -29,8 +42,7 @@
 
 <div class="tab-content" id="recipientTabsContent">
 
-    <!-- TAB: Asignados -->
-    <div class="tab-pane fade" id="tab-assigned" role="tabpanel">
+    <div class="tab-pane fade <?= $activeTab === 'assigned' ? 'show active' : '' ?>" id="tab-assigned" role="tabpanel" aria-labelledby="tab-assigned-btn">
         <div class="card border-0 shadow-sm">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
@@ -57,8 +69,7 @@
                                 <td><?= htmlspecialchars((string)($row['campaign_status'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                 <?php if (Auth::isAdmin()): ?>
                                     <td class="text-end">
-                                        <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/recipients/<?= (int) $row['id'] ?>/remove"
-                                              onsubmit="return confirm('¿Quitar este destinatario?');">
+                                        <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/recipients/<?= (int) $row['id'] ?>/remove" onsubmit="return confirm('¿Quitar este destinatario?');">
                                             <?= Csrf::input() ?>
                                             <button class="btn btn-sm btn-outline-danger">Quitar</button>
                                         </form>
@@ -79,36 +90,41 @@
         </div>
     </div>
 
-    <!-- TAB: Asignar existentes -->
-    <div class="tab-pane fade" id="tab-assign" role="tabpanel">
+    <div class="tab-pane fade <?= $activeTab === 'assign' ? 'show active' : '' ?>" id="tab-assign" role="tabpanel" aria-labelledby="tab-assign-btn">
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body">
                 <h2 class="h6 mb-3">Filtrar destinatarios disponibles</h2>
                 <form method="get" action="/campaigns/<?= (int) $campaign['id'] ?>/recipients" class="row g-2">
                     <input type="hidden" name="tab" value="assign">
-                    <div class="col-md-4">
-                        <input type="text" class="form-control form-control-sm" name="search"
-                               value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>"
-                               placeholder="Buscar correo, nombre...">
-                    </div>
                     <div class="col-md-3">
+                        <input type="text" class="form-control form-control-sm" name="search" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>" placeholder="Buscar correo, nombre o institución...">
+                    </div>
+                    <div class="col-md-2">
                         <select class="form-select form-select-sm" name="segment">
                             <option value="">Todos los segmentos</option>
                             <?php foreach ($segments as $seg): ?>
-                                <option value="<?= htmlspecialchars($seg, ENT_QUOTES, 'UTF-8') ?>"
-                                    <?= $segment === $seg ? 'selected' : '' ?>>
+                                <option value="<?= htmlspecialchars($seg, ENT_QUOTES, 'UTF-8') ?>" <?= $segment === $seg ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($seg, ENT_QUOTES, 'UTF-8') ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <select class="form-select form-select-sm" name="country">
                             <option value="">Todos los países</option>
                             <?php foreach ($countries as $c): ?>
-                                <option value="<?= htmlspecialchars($c, ENT_QUOTES, 'UTF-8') ?>"
-                                    <?= $country === $c ? 'selected' : '' ?>>
+                                <option value="<?= htmlspecialchars($c, ENT_QUOTES, 'UTF-8') ?>" <?= $country === $c ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($c, ENT_QUOTES, 'UTF-8') ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm" name="institution">
+                            <option value="">Todas las instituciones</option>
+                            <?php foreach ($institutions as $inst): ?>
+                                <option value="<?= htmlspecialchars($inst, ENT_QUOTES, 'UTF-8') ?>" <?= $institution === $inst ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($inst, ENT_QUOTES, 'UTF-8') ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -123,11 +139,12 @@
         <?php if (Auth::isAdmin() && !empty($availableRecipients)): ?>
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body">
-                <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/recipients/assign-bulk"
-                      onsubmit="return confirm('¿Asignar todos los destinatarios visibles?');">
+                <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/recipients/assign-bulk" onsubmit="return confirm('¿Asignar todos los destinatarios visibles?');">
                     <?= Csrf::input() ?>
+                    <input type="hidden" name="search" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="segment" value="<?= htmlspecialchars($segment, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="country" value="<?= htmlspecialchars($country, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="institution" value="<?= htmlspecialchars($institution, ENT_QUOTES, 'UTF-8') ?>">
                     <button type="submit" class="btn btn-sm btn-warning">
                         Asignar todos (<?= count($availableRecipients) ?>)
                     </button>
@@ -143,6 +160,7 @@
                         <tr>
                             <th>Correo</th>
                             <th>Nombre</th>
+                            <th>Institución</th>
                             <th>Segmento</th>
                             <th>País</th>
                             <?php if (Auth::isAdmin()): ?>
@@ -156,16 +174,18 @@
                             <tr>
                                 <td><?= htmlspecialchars($row['email'], ENT_QUOTES, 'UTF-8') ?></td>
                                 <td><?= htmlspecialchars(trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? '')), ENT_QUOTES, 'UTF-8') ?></td>
+                                <td><?= htmlspecialchars((string)($row['institution'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                 <td><?= htmlspecialchars((string)($row['segment'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                 <td><?= htmlspecialchars((string)($row['country'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                 <?php if (Auth::isAdmin()): ?>
                                     <td class="text-end">
-                                       <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/recipients/assign">
+                                        <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/recipients/assign">
                                             <?= Csrf::input() ?>
                                             <input type="hidden" name="recipient_id" value="<?= (int) $row['id'] ?>">
                                             <input type="hidden" name="search" value="<?= htmlspecialchars($search, ENT_QUOTES, 'UTF-8') ?>">
                                             <input type="hidden" name="segment" value="<?= htmlspecialchars($segment, ENT_QUOTES, 'UTF-8') ?>">
                                             <input type="hidden" name="country" value="<?= htmlspecialchars($country, ENT_QUOTES, 'UTF-8') ?>">
+                                            <input type="hidden" name="institution" value="<?= htmlspecialchars($institution, ENT_QUOTES, 'UTF-8') ?>">
                                             <button class="btn btn-sm btn-outline-success">+ Asignar</button>
                                         </form>
                                     </td>
@@ -174,7 +194,7 @@
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="<?= Auth::isAdmin() ? 5 : 4 ?>" class="text-center text-muted py-4">
+                            <td colspan="<?= Auth::isAdmin() ? 6 : 5 ?>" class="text-center text-muted py-4">
                                 No hay destinatarios disponibles con este filtro.
                             </td>
                         </tr>
@@ -185,8 +205,7 @@
         </div>
     </div>
 
-    <!-- TAB: Importar CSV -->
-    <div class="tab-pane fade" id="tab-import" role="tabpanel">
+    <div class="tab-pane fade <?= $activeTab === 'import' ? 'show active' : '' ?>" id="tab-import" role="tabpanel" aria-labelledby="tab-import-btn">
         <div class="row g-4">
             <div class="col-lg-7">
                 <div class="card border-0 shadow-sm">
@@ -196,10 +215,10 @@
                         <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/recipients/import" enctype="multipart/form-data">
                             <?= Csrf::input() ?>
                             <input type="file" class="form-control mb-3" name="csv" accept=".csv" required>
-                            <div class="d-flex gap-2">
-                                <button type="submit" class="btn btn-primary btn-sm">Importar</button>
-                                <a href="/campaigns/<?= (int) $campaign['id'] ?>/recipients/template"
-                                   class="btn btn-outline-secondary btn-sm">Descargar plantilla</a>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="submit" class="btn btn-outline-primary btn-sm" formaction="/campaigns/<?= (int) $campaign['id'] ?>/recipients/validate">Validar sin guardar</button>
+                                <button type="submit" class="btn btn-primary btn-sm">Importar y asignar</button>
+                                <a href="/campaigns/<?= (int) $campaign['id'] ?>/recipients/template" class="btn btn-outline-secondary btn-sm">Descargar plantilla</a>
                             </div>
                         </form>
 
@@ -207,7 +226,13 @@
                             <hr>
                             <div class="small">
                                 <div><strong>Total procesados:</strong> <?= (int)$importResult['total'] ?></div>
-                                <div class="text-success"><strong>Importados:</strong> <?= (int)$importResult['imported'] ?></div>
+                                <div class="text-success"><strong>Importados/asignados:</strong> <?= (int)$importResult['imported'] ?></div>
+                                <?php if (isset($importResult['created'])): ?>
+                                    <div><strong>Nuevos:</strong> <?= (int)$importResult['created'] ?></div>
+                                <?php endif; ?>
+                                <?php if (isset($importResult['updated'])): ?>
+                                    <div><strong>Fusionados/actualizados:</strong> <?= (int)$importResult['updated'] ?></div>
+                                <?php endif; ?>
                                 <div class="text-danger"><strong>Fallidos:</strong> <?= (int)$importResult['failed'] ?></div>
                             </div>
                         <?php endif; ?>
@@ -246,28 +271,28 @@
 </div>
 
 <script>
-const params = new URLSearchParams(window.location.search);
-const activeTab = params.get('tab') || 'assigned';
+(function () {
+    const params = new URLSearchParams(window.location.search);
+    const activeTab = params.get('tab') || 'assigned';
+    const tabMap = {
+        assigned: 'tab-assigned-btn',
+        assign: 'tab-assign-btn',
+        import: 'tab-import-btn'
+    };
 
-const tabMap = {
-    'assigned': 'tab-assigned-btn',
-    'assign':   'tab-assign-btn',
-    'import':   'tab-import-btn',
-};
+    const tabEl = document.getElementById(tabMap[activeTab] || 'tab-assigned-btn');
+    if (tabEl && window.bootstrap && window.bootstrap.Tab) {
+        new bootstrap.Tab(tabEl).show();
+    }
 
-const btnId = tabMap[activeTab] || 'tab-assigned-btn';
-const tabEl = document.getElementById(btnId);
-if (tabEl) {
-    new bootstrap.Tab(tabEl).show();
-}
-
-document.querySelectorAll('[data-bs-toggle="tab"]').forEach(btn => {
-    btn.addEventListener('shown.bs.tab', function(e) {
-        const target = e.target.getAttribute('data-bs-target');
-        const tabName = target.replace('#tab-', '');
-        const url = new URL(window.location.href);
-        url.searchParams.set('tab', tabName);
-        window.history.replaceState({}, '', url);
+    document.querySelectorAll('[data-bs-toggle="tab"]').forEach(btn => {
+        btn.addEventListener('shown.bs.tab', function(e) {
+            const target = e.target.getAttribute('data-bs-target') || '#tab-assigned';
+            const tabName = target.replace('#tab-', '');
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', tabName);
+            window.history.replaceState({}, '', url);
+        });
     });
-});
+})();
 </script>

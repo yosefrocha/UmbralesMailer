@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 final class CampaignDeliverySendService
 {
-    public function processDue(int $limit = 50): array
+    public function processDue(int $limit = 50, ?int $campaignId = null): array
     {
         $deliveryModel = new CampaignDelivery();
         $campaignMessageModel = new CampaignMessage();
         $settings = (new SettingsService())->all();
         $recipientModel = new Recipient();
         $ses = new SesV2Service();
-        $tracker = new CampaignTrackingService();
+        $tracker = class_exists('CampaignTrackingService') ? new CampaignTrackingService() : null;
 
         $appConfig = require CONFIG_PATH . '/app.php';
         $baseUrl = rtrim((string) ($appConfig['base_url'] ?? ''), '/');
-        $rows = $deliveryModel->due($limit);
+        $rows = $deliveryModel->due($limit, $campaignId);
 
         $processed = 0;
         $sent = 0;
@@ -26,19 +26,29 @@ final class CampaignDeliverySendService
             $processed++;
 
             if (($row['campaign_status'] ?? '') !== 'active') {
-                $deliveryModel->markSkipped((int) $row['id'], 'Campaña inactiva o no activa.');
+                $deliveryModel->markSkipped((int) $row['id'], 'Campaña inactiva, detenida o cancelada.');
+                $deliveryModel->skipPendingByCampaign((int) $row['campaign_id'], 'Campaña inactiva, detenida o cancelada.');
                 $skipped++;
                 continue;
             }
 
-            if (($row['campaign_recipient_status'] ?? '') !== 'active') {
-                $deliveryModel->markSkipped((int) $row['id'], 'Destinatario removido o excluido de la campaña.');
+            if (empty($row['campaign_recipient_id']) || ($row['campaign_recipient_status'] ?? '') !== 'active') {
+                $deliveryModel->markSkipped((int) $row['id'], 'Destinatario eliminado o excluido de la campaña activa.');
+                $deliveryModel->skipPendingForRecipient((int) $row['campaign_id'], (int) $row['recipient_id'], 'Destinatario eliminado o excluido de la campaña activa.');
+                $skipped++;
+                continue;
+            }
+
+            if (!empty($row['responded_at'])) {
+                $deliveryModel->markSkipped((int) $row['id'], 'Destinatario respondio. Secuencia detenida.');
+                $deliveryModel->skipPendingForRecipient((int) $row['campaign_id'], (int) $row['recipient_id'], 'Destinatario respondio. Secuencia detenida.');
                 $skipped++;
                 continue;
             }
 
             if (($row['recipient_status'] ?? '') !== 'active' || !empty($row['unsubscribed_at'])) {
                 $deliveryModel->markSkipped((int) $row['id'], 'Destinatario inactivo o desuscrito.');
+                $deliveryModel->skipPendingForRecipient((int) $row['campaign_id'], (int) $row['recipient_id'], 'Destinatario inactivo o desuscrito.');
                 $skipped++;
                 continue;
             }
@@ -55,12 +65,11 @@ final class CampaignDeliverySendService
 
             $subject = (string) $message['subject'];
             $contentMode = (string) ($row['content_mode'] ?? 'text');
-
             $textBody = trim((string) ($message['text_body'] ?? ''));
             $htmlBody = trim((string) ($message['html_body'] ?? ''));
 
-            $textFooter = "\n\n---\nSi ya no deseas recibir estos correos, utiliza este enlace de baja:\n" . $unsubscribeUrl;
-            $htmlFooter = '<hr><p>Si ya no deseas recibir estos correos, utiliza este enlace de baja: <a href="' . htmlspecialchars($unsubscribeUrl, ENT_QUOTES, 'UTF-8') . '">Cancelar suscripción</a></p>';
+            $textFooter = "\n\n---\nSi ya no deseas recibir estos correos:\n" . $unsubscribeUrl;
+            $htmlFooter = '<hr style="border:none;border-top:1px solid #eee;margin:20px 0"><p style="font-size:12px;color:#888;text-align:center">Si ya no deseas recibir estos correos, <a href="' . htmlspecialchars($unsubscribeUrl, ENT_QUOTES, 'UTF-8') . '">cancela tu suscripción aquí</a>.</p>';
 
             if ($contentMode === 'html') {
                 $htmlToSend = $htmlBody . $htmlFooter;
@@ -70,7 +79,12 @@ final class CampaignDeliverySendService
                 $htmlToSend = nl2br(htmlspecialchars($textBody, ENT_QUOTES, 'UTF-8')) . $htmlFooter;
             }
 
-            $htmlToSend = $this->appendTrackingPixel($htmlToSend, $tracker->trackingPixel('cd', (int) $row['id'], (int) $row['campaign_id'], (int) $row['recipient_id']));
+            if ($tracker !== null && method_exists($tracker, 'trackingPixel')) {
+                $htmlToSend = $this->appendTrackingPixel(
+                    $htmlToSend,
+                    $tracker->trackingPixel('cd', (int) $row['id'], (int) $row['campaign_id'], (int) $row['recipient_id'])
+                );
+            }
 
             $result = $ses->send($settings, [
                 'to_email' => $row['email'],
@@ -102,14 +116,12 @@ final class CampaignDeliverySendService
 
     private function appendTrackingPixel(string $html, string $pixel): string
     {
-        if (stripos($html, "</body>") !== false) {
-            return preg_replace("~</body>~i", $pixel . "</body>", $html, 1) ?? ($html . $pixel);
+        if (stripos($html, '</body>') !== false) {
+            return preg_replace('~</body>~i', $pixel . '</body>', $html, 1) ?? ($html . $pixel);
         }
-
-        if (stripos($html, "</html>") !== false) {
-            return preg_replace("~</html>~i", $pixel . "</html>", $html, 1) ?? ($html . $pixel);
+        if (stripos($html, '</html>') !== false) {
+            return preg_replace('~</html>~i', $pixel . '</html>', $html, 1) ?? ($html . $pixel);
         }
-
         return $html . $pixel;
     }
 }

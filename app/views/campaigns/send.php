@@ -3,8 +3,18 @@
         <h1 class="h3 mb-1">Preparar envío</h1>
         <p class="text-muted mb-0">Campaña: <?= htmlspecialchars($campaign['name'], ENT_QUOTES, 'UTF-8') ?></p>
     </div>
-    <a href="/campaigns/<?= (int) $campaign['id'] ?>" class="btn btn-outline-secondary">Volver</a>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="/campaigns/<?= (int) $campaign['id'] ?>" class="btn btn-outline-secondary">Volver</a>
+        <a href="/campaigns/<?= (int) $campaign['id'] ?>/schedule" class="btn btn-outline-dark">Envío programado</a>
+    </div>
 </div>
+
+<?php if (!empty($error)): ?>
+    <div class="alert alert-danger"><?= htmlspecialchars((string) $error, ENT_QUOTES, 'UTF-8') ?></div>
+<?php endif; ?>
+<?php if (!empty($success)): ?>
+    <div class="alert alert-success"><?= htmlspecialchars((string) $success, ENT_QUOTES, 'UTF-8') ?></div>
+<?php endif; ?>
 
 <div class="row g-4">
     <div class="col-lg-7">
@@ -36,19 +46,25 @@
 
     <div class="col-lg-5">
         <div class="card border-0 shadow-sm mb-3"><div class="card-body">
-            <h2 class="h5">Validación SES</h2>
-            <ul class="small mb-3">
-                <li>Región: <?= htmlspecialchars((string)($settings['ses_region'] ?? ''), ENT_QUOTES, 'UTF-8') ?: '<span class="text-danger">No configurada</span>' ?></li>
-                <li>From: <?= htmlspecialchars((string)($settings['ses_from_email'] ?? ''), ENT_QUOTES, 'UTF-8') ?: '<span class="text-danger">No configurado</span>' ?></li>
-                <li>Access key: <?= !empty($settings['ses_key']) ? '<span class="text-success">Cargada</span>' : '<span class="text-danger">Falta</span>' ?></li>
-                <li>Secret key: <?= !empty($settings['ses_secret']) ? '<span class="text-success">Cargada</span>' : '<span class="text-danger">Falta</span>' ?></li>
-            </ul>
-            <?php if ($message): ?>
+            <h2 class="h5">Envío inmediato</h2>
+            <p class="small text-muted">Crea una sesión de envío manual para procesar lotes desde el monitor.</p>
+            <?php if (!$message || $recipientsCount <= 0): ?>
+                <button class="btn btn-primary w-100" disabled>Iniciar envío</button>
+                <div class="form-text">Requiere mensaje guardado y destinatarios activos.</div>
+            <?php else: ?>
             <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/send/start">
                 <?= Csrf::input() ?>
-                <button type="submit" class="btn btn-primary w-100">Iniciar envío</button>
+                <button type="submit" class="btn btn-primary w-100">Iniciar envío inmediato</button>
             </form>
             <?php endif; ?>
+        </div></div>
+
+        <div class="card border-0 shadow-sm mb-3"><div class="card-body">
+            <h2 class="h5">Envío programado</h2>
+            <p class="small text-muted">Programa X mensajes por lote cada Y días automáticamente, sin crear una campaña nueva.</p>
+            <a href="/campaigns/<?= (int) $campaign['id'] ?>/schedule" class="btn btn-outline-dark w-100 <?= ($message && $recipientsCount > 0) ? '' : 'disabled' ?>">
+                Configurar programación
+            </a>
         </div></div>
 
         <?php if ($message): ?>

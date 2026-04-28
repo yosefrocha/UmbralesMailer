@@ -70,6 +70,12 @@ final class App
 
         $this->router->get('/campaigns/{id}/send', [CampaignsController::class, 'sendSetup'], [Auth::class, 'requireAuth']);
         $this->router->post('/campaigns/{id}/send/start', [CampaignsController::class, 'startSend'], [Auth::class, 'requireAdmin']);
+        $this->router->get('/campaigns/{id}/schedule', [ScheduledCampaignsController::class, 'show'], [Auth::class, 'requireAuth']);
+        $this->router->post('/campaigns/{id}/schedule', [ScheduledCampaignsController::class, 'store'], [Auth::class, 'requireAdmin']);
+        $this->router->post('/campaigns/{id}/schedule/cancel', [ScheduledCampaignsController::class, 'cancel'], [Auth::class, 'requireAdmin']);
+        $this->router->post('/campaigns/{id}/schedule/process-now', [ScheduledCampaignsController::class, 'processNow'], [Auth::class, 'requireAdmin']);
+        $this->router->post('/campaigns/{id}/schedule/responded/{recipientId}', [ScheduledCampaignsController::class, 'markResponded'], [Auth::class, 'requireAdmin']);
+        $this->router->post('/campaigns/{id}/schedule/responded/{recipientId}/clear', [ScheduledCampaignsController::class, 'clearResponded'], [Auth::class, 'requireAdmin']);
 
         $this->router->get('/campaigns/{id}/recipients', [CampaignsController::class, 'recipients'], [Auth::class, 'requireAuth']);
         $this->router->post('/campaigns/{id}/recipients/import', [CampaignsController::class, 'importRecipients'], [Auth::class, 'requireAdmin']);
@@ -91,5 +97,6 @@ final class App
 
         $this->router->get('/unsubscribe/{token}', [PublicController::class, 'unsubscribe']);
         $this->router->get('/track/open/{token}', [PublicController::class, 'trackOpen']);
+        $this->router->get('/cron/scheduled-send', [CronController::class, 'scheduledSend']);
     }
 }
