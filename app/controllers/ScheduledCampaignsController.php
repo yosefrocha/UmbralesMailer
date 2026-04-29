@@ -15,7 +15,7 @@ final class ScheduledCampaignsController extends Controller
 
         $message = (new CampaignMessage())->findByCampaign($campaignId);
         $deliveryModel = new CampaignDelivery();
-        $scheduleService = new CampaignScheduleService();
+        $cronUrl = Auth::isAdmin() ? (new CampaignScheduleService())->cronUrl() : '';
 
         $this->view('campaigns/schedule', [
             'title' => 'Secuencia programada',
@@ -24,7 +24,7 @@ final class ScheduledCampaignsController extends Controller
             'activeRecipients' => (new CampaignRecipient())->countActiveByCampaign($campaignId),
             'summary' => $deliveryModel->summaryByCampaign($campaignId),
             'deliveries' => $deliveryModel->listByCampaign($campaignId, 500),
-            'cronUrl' => $scheduleService->cronUrl(),
+            'cronUrl' => $cronUrl,
             'error' => Session::getFlash('error'),
             'success' => Session::getFlash('success'),
             'lastResult' => Session::getFlash('scheduled_result'),
@@ -107,7 +107,7 @@ final class ScheduledCampaignsController extends Controller
 
     public function processNow(string $id): void
     {
-        Auth::requireAuth();
+        Auth::requireAdmin();
         $this->requireCsrf();
         $campaignId = $this->intId($id);
         $limit = max(1, min(200, (int) $this->post('limit', 50)));

@@ -43,11 +43,11 @@ final class App
         $this->router->post('/users/{id}/temp-password', [UsersController::class, 'generateTempPassword'], [Auth::class, 'requireAdmin']);
 
         $this->router->get('/recipients', [RecipientsController::class, 'index'], [Auth::class, 'requireAuth']);
-        $this->router->get('/recipients/create', [RecipientsController::class, 'create'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/recipients/store', [RecipientsController::class, 'store'], [Auth::class, 'requireAdmin']);
-        $this->router->get('/recipients/{id}/edit', [RecipientsController::class, 'edit'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/recipients/{id}/update', [RecipientsController::class, 'update'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/recipients/import', [RecipientsController::class, 'import'], [Auth::class, 'requireAdmin']);
+        $this->router->get('/recipients/create', [RecipientsController::class, 'create'], [Auth::class, 'requireAuth']);
+        $this->router->post('/recipients/store', [RecipientsController::class, 'store'], [Auth::class, 'requireAuth']);
+        $this->router->get('/recipients/{id}/edit', [RecipientsController::class, 'edit'], [Auth::class, 'requireAuth']);
+        $this->router->post('/recipients/{id}/update', [RecipientsController::class, 'update'], [Auth::class, 'requireAuth']);
+        $this->router->post('/recipients/import', [RecipientsController::class, 'import'], [Auth::class, 'requireAuth']);
         $this->router->get('/recipients/template', [RecipientsController::class, 'downloadTemplate'], [Auth::class, 'requireAuth']);
         $this->router->get('/recipients/{id}/history', [RecipientsController::class, 'history'], [Auth::class, 'requireAuth']);
 
@@ -57,40 +57,40 @@ final class App
         $this->router->get('/campaigns/{id}', [CampaignsController::class, 'show'], [Auth::class, 'requireAuth']);
         $this->router->get('/campaigns/{id}/edit', [CampaignsController::class, 'edit'], [Auth::class, 'requireAuth']);
         $this->router->post('/campaigns/{id}/update', [CampaignsController::class, 'update'], [Auth::class, 'requireAuth']);
-        $this->router->post('/campaigns/{id}/activate', [CampaignsController::class, 'activate'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/campaigns/{id}/deactivate', [CampaignsController::class, 'deactivate'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/campaigns/{id}/delete', [CampaignsController::class, 'delete'], [Auth::class, 'requireAdmin']);
+        $this->router->post('/campaigns/{id}/activate', [CampaignsController::class, 'activate'], [Auth::class, 'requireAuth']);
+        $this->router->post('/campaigns/{id}/deactivate', [CampaignsController::class, 'deactivate'], [Auth::class, 'requireAuth']);
+        $this->router->post('/campaigns/{id}/delete', [CampaignsController::class, 'delete'], [Auth::class, 'requireAuth']);
 
         $this->router->get('/campaigns/{id}/message', [CampaignsController::class, 'messageForm'], [Auth::class, 'requireAuth']);
         $this->router->post('/campaigns/{id}/message', [CampaignsController::class, 'saveMessage'], [Auth::class, 'requireAuth']);
         $this->router->get('/campaigns/{id}/preview', [CampaignsController::class, 'previewMessage'], [Auth::class, 'requireAuth']);
-        $this->router->post('/campaigns/{id}/test', [CampaignsController::class, 'sendTest'], [Auth::class, 'requireAdmin']);
-        $this->router->get('/campaigns/{id}/export', [CampaignsController::class, 'exportResults'], [Auth::class, 'requireAdmin']);
+        $this->router->post('/campaigns/{id}/test', [CampaignsController::class, 'sendTest'], [Auth::class, 'requireAuth']);
+        $this->router->get('/campaigns/{id}/export', [CampaignsController::class, 'exportResults'], [Auth::class, 'requireAuth']);
         $this->router->get('/campaigns/{id}/opens', [CampaignsController::class, 'opens'], [Auth::class, 'requireAuth']);
 
         $this->router->get('/campaigns/{id}/send', [CampaignsController::class, 'sendSetup'], [Auth::class, 'requireAuth']);
-        $this->router->post('/campaigns/{id}/send/start', [CampaignsController::class, 'startSend'], [Auth::class, 'requireAdmin']);
+        $this->router->post('/campaigns/{id}/send/start', [CampaignsController::class, 'startSend'], [Auth::class, 'requireAuth']);
         $this->router->get('/campaigns/{id}/schedule', [ScheduledCampaignsController::class, 'show'], [Auth::class, 'requireAuth']);
-        $this->router->post('/campaigns/{id}/schedule', [ScheduledCampaignsController::class, 'store'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/campaigns/{id}/schedule/cancel', [ScheduledCampaignsController::class, 'cancel'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/campaigns/{id}/schedule/process-now', [ScheduledCampaignsController::class, 'processNow'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/campaigns/{id}/schedule/responded/{recipientId}', [ScheduledCampaignsController::class, 'markResponded'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/campaigns/{id}/schedule/responded/{recipientId}/clear', [ScheduledCampaignsController::class, 'clearResponded'], [Auth::class, 'requireAdmin']);
+        $this->router->post('/campaigns/{id}/schedule', [ScheduledCampaignsController::class, 'store'], [Auth::class, 'requireAuth']);
+        $this->router->post('/campaigns/{id}/schedule/cancel', [ScheduledCampaignsController::class, 'cancel'], [Auth::class, 'requireAuth']);
+        $this->router->post('/campaigns/{id}/schedule/process-now', [ScheduledCampaignsController::class, 'processNow'], [Auth::class, 'requireAuth']);
+        $this->router->post('/campaigns/{id}/schedule/responded/{recipientId}', [ScheduledCampaignsController::class, 'markResponded'], [Auth::class, 'requireAuth']);
+        $this->router->post('/campaigns/{id}/schedule/responded/{recipientId}/clear', [ScheduledCampaignsController::class, 'clearResponded'], [Auth::class, 'requireAuth']);
 
         $this->router->get('/campaigns/{id}/recipients', [CampaignsController::class, 'recipients'], [Auth::class, 'requireAuth']);
-        $this->router->post('/campaigns/{id}/recipients/import', [CampaignsController::class, 'importRecipients'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/campaigns/{id}/recipients/assign', [CampaignsController::class, 'assignRecipient'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/campaigns/{id}/recipients/assign-bulk', [CampaignsController::class, 'assignBulk'], [Auth::class, 'requireAdmin']);
+        $this->router->post('/campaigns/{id}/recipients/import', [CampaignsController::class, 'importRecipients'], [Auth::class, 'requireAuth']);
+        $this->router->post('/campaigns/{id}/recipients/assign', [CampaignsController::class, 'assignRecipient'], [Auth::class, 'requireAuth']);
+        $this->router->post('/campaigns/{id}/recipients/assign-bulk', [CampaignsController::class, 'assignBulk'], [Auth::class, 'requireAuth']);
         $this->router->get('/campaigns/{id}/recipients/template', [CampaignsController::class, 'downloadRecipientsTemplate'], [Auth::class, 'requireAuth']);
-        $this->router->post('/campaigns/{id}/recipients/{recipientId}/remove', [CampaignsController::class, 'removeRecipient'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/campaigns/{id}/recipients/validate', [CampaignsController::class, 'validateRecipientsCsv'], [Auth::class, 'requireAdmin']);
+        $this->router->post('/campaigns/{id}/recipients/{recipientId}/remove', [CampaignsController::class, 'removeRecipient'], [Auth::class, 'requireAuth']);
+        $this->router->post('/campaigns/{id}/recipients/validate', [CampaignsController::class, 'validateRecipientsCsv'], [Auth::class, 'requireAuth']);
 
         $this->router->get('/sending/{id}', [SendingController::class, 'show'], [Auth::class, 'requireAuth']);
         $this->router->get('/sending/{id}/status', [SendingController::class, 'status'], [Auth::class, 'requireAuth']);
-        $this->router->post('/sending/{id}/process', [SendingController::class, 'process'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/sending/{id}/retry', [SendingController::class, 'retryFailed'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/sending/{id}/pause', [SendingController::class, 'pause'], [Auth::class, 'requireAdmin']);
-        $this->router->post('/sending/{id}/resume', [SendingController::class, 'resume'], [Auth::class, 'requireAdmin']);
+        $this->router->post('/sending/{id}/process', [SendingController::class, 'process'], [Auth::class, 'requireAuth']);
+        $this->router->post('/sending/{id}/retry', [SendingController::class, 'retryFailed'], [Auth::class, 'requireAuth']);
+        $this->router->post('/sending/{id}/pause', [SendingController::class, 'pause'], [Auth::class, 'requireAuth']);
+        $this->router->post('/sending/{id}/resume', [SendingController::class, 'resume'], [Auth::class, 'requireAuth']);
 
         $this->router->get('/settings', [SettingsController::class, 'index'], [Auth::class, 'requireAdmin']);
         $this->router->post('/settings/save', [SettingsController::class, 'save'], [Auth::class, 'requireAdmin']);

@@ -6,9 +6,16 @@ final class SettingsController extends Controller
 {
     public function index(): void
     {
+        Auth::requireAdmin();
+        $scheduleService = new CampaignScheduleService();
+        $cronUrl = $scheduleService->cronUrl();
+
         $this->view('settings/index', [
             'title' => 'Configuración',
             'settings' => (new SettingsService())->all(),
+            'cronUrl' => $cronUrl,
+            'cronWgetCommand' => 'wget -q -O /dev/null "' . $cronUrl . '"',
+            'cronCurlCommand' => 'curl -s "' . $cronUrl . '" > /dev/null 2>&1',
             'error' => Session::getFlash('error'),
             'success' => Session::getFlash('success'),
         ]);
@@ -16,6 +23,7 @@ final class SettingsController extends Controller
 
     public function save(): void
     {
+        Auth::requireAdmin();
         $this->requireCsrf();
         $data = [
             'ses_region' => trim((string) $this->post('ses_region')),

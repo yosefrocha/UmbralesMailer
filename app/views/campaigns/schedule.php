@@ -83,22 +83,29 @@ $statusLabels = [
     <div class="col-lg-6">
         <div class="card border-0 shadow-sm h-100">
             <div class="card-body">
-                <h2 class="h5">Ejecución automática</h2>
-                <p class="text-muted small">Configura este enlace en Hostinger como Cron Job. El cron puede correr cada 15 minutos; solo enviará los mensajes que ya vencieron.</p>
-                <label class="form-label">URL del cron</label>
-                <textarea class="form-control small" rows="3" readonly><?= htmlspecialchars((string) $cronUrl, ENT_QUOTES, 'UTF-8') ?></textarea>
-                <div class="form-text mb-3">No cambia la regla de 2 días. Solo revisa si ya toca enviar.</div>
+                <h2 class="h5">Control de secuencia</h2>
+                <p class="text-muted small mb-3">La secuencia queda en cola y se ejecuta automáticamente con el cron global configurado por administración. El usuario operativo no necesita ver ni configurar registros técnicos de cron.</p>
 
-                <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/schedule/process-now" class="d-inline">
-                    <?= Csrf::input() ?>
-                    <input type="hidden" name="limit" value="50">
-                    <button type="submit" class="btn btn-outline-success">Procesar vencidos ahora</button>
-                </form>
+                <div class="alert alert-light border mb-3">
+                    <strong>Automatización activa:</strong><br>
+                    El sistema revisará los mensajes vencidos y enviará únicamente los que correspondan según la fecha programada de cada destinatario.
+                </div>
 
                 <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/schedule/cancel" class="d-inline" onsubmit="return confirm('¿Cancelar todos los envíos pendientes de esta secuencia?');">
                     <?= Csrf::input() ?>
                     <button type="submit" class="btn btn-outline-danger">Cancelar pendientes</button>
                 </form>
+
+                <?php if (Auth::isAdmin()): ?>
+                    <hr>
+                    <h3 class="h6">Herramientas técnicas de administrador</h3>
+                    <p class="text-muted small">La URL global del cron está disponible en Configuración. Desde aquí solo puedes forzar el procesamiento manual de vencidos para diagnóstico.</p>
+                    <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/schedule/process-now" class="d-inline">
+                        <?= Csrf::input() ?>
+                        <input type="hidden" name="limit" value="50">
+                        <button type="submit" class="btn btn-outline-success">Procesar vencidos ahora</button>
+                    </form>
+                <?php endif; ?>
             </div>
         </div>
     </div>
