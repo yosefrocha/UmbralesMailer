@@ -301,6 +301,62 @@ final class CampaignDelivery extends Model
         );
     }
 
+    public function recipientSummaryByCampaign(int $campaignId, int $limit = 100, int $offset = 0): array
+    {
+        $respondedSelect = ($this->hasColumn('campaign_recipients', 'responded_at') ? 'cr.responded_at AS responded_at,' : 'NULL AS responded_at,')
+            . ($this->hasColumn('campaign_recipients', 'response_note') ? 'cr.response_note AS response_note,' : 'NULL AS response_note,')
+            . ($this->hasColumn('campaign_recipients', 'stopped_at') ? 'cr.stopped_at AS stopped_at,' : 'NULL AS stopped_at,')
+            . ($this->hasColumn('campaign_recipients', 'stop_reason') ? 'cr.stop_reason AS stop_reason,' : 'NULL AS stop_reason,');
+
+        return $this->fetchAll(
+            'SELECT
+                r.id AS recipient_id,
+                r.email,
+                r.first_name,
+                r.last_name,
+                r.institution,
+                r.segment,
+                r.country,
+                r.status AS recipient_status,
+                r.unsubscribed_at,
+                cr.status AS campaign_recipient_status,
+                ' . $respondedSelect . '
+                COUNT(cd.id) AS total_scheduled,
+                SUM(CASE WHEN cd.status = "pending" THEN 1 ELSE 0 END) AS pending_count,
+                SUM(CASE WHEN cd.status = "pending" AND cd.scheduled_for <= NOW() THEN 1 ELSE 0 END) AS due_count,
+                SUM(CASE WHEN cd.status = "sent" THEN 1 ELSE 0 END) AS sent_count,
+                SUM(CASE WHEN cd.status = "failed" THEN 1 ELSE 0 END) AS failed_count,
+                SUM(CASE WHEN cd.status IN ("skipped", "cancelled") THEN 1 ELSE 0 END) AS stopped_count,
+                MIN(CASE WHEN cd.status = "pending" THEN cd.scheduled_for ELSE NULL END) AS next_scheduled_for,
+                MAX(CASE WHEN cd.status = "sent" THEN cd.sent_at ELSE NULL END) AS last_sent_at,
+                MAX(CASE WHEN cd.status = "failed" THEN cd.error_message ELSE NULL END) AS last_error
+             FROM campaign_recipients cr
+             INNER JOIN recipients r ON r.id = cr.recipient_id
+             LEFT JOIN campaign_deliveries cd
+                ON cd.campaign_id = cr.campaign_id
+               AND cd.recipient_id = cr.recipient_id
+             WHERE cr.campaign_id = :campaign_id
+             GROUP BY
+                r.id, r.email, r.first_name, r.last_name, r.institution, r.segment, r.country,
+                r.status, r.unsubscribed_at, cr.status
+             ORDER BY r.email ASC
+             LIMIT ' . max(1, min(500, $limit)) . ' OFFSET ' . max(0, $offset),
+            ['campaign_id' => $campaignId]
+        );
+    }
+
+    public function countRecipientSummaryByCampaign(int $campaignId): int
+    {
+        $row = $this->fetchOne(
+            'SELECT COUNT(*) AS total
+             FROM campaign_recipients
+             WHERE campaign_id = :campaign_id',
+            ['campaign_id' => $campaignId]
+        );
+
+        return (int) ($row['total'] ?? 0);
+    }
+
     private function hasColumn(string $table, string $column): bool
     {
         try {

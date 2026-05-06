@@ -16,7 +16,6 @@ final class CampaignRecipient extends Model
                AND r.unsubscribed_at IS NULL',
             ['campaign_id' => $campaignId]
         );
-
         return (int) ($row['total'] ?? 0);
     }
 
@@ -47,10 +46,7 @@ final class CampaignRecipient extends Model
              WHERE campaign_id = :campaign_id
                AND recipient_id = :recipient_id
              LIMIT 1',
-            [
-                'campaign_id' => $campaignId,
-                'recipient_id' => $recipientId,
-            ]
+            ['campaign_id' => $campaignId, 'recipient_id' => $recipientId]
         );
 
         if ($existing) {
@@ -60,11 +56,7 @@ final class CampaignRecipient extends Model
                      source = :source,
                      import_id = :import_id
                  WHERE id = :id',
-                [
-                    'id' => $existing['id'],
-                    'source' => $source,
-                    'import_id' => $importId,
-                ]
+                ['id' => $existing['id'], 'source' => $source, 'import_id' => $importId]
             );
             return;
         }
@@ -72,12 +64,7 @@ final class CampaignRecipient extends Model
         $this->execute(
             'INSERT INTO campaign_recipients (campaign_id, recipient_id, source, import_id, status)
              VALUES (:campaign_id, :recipient_id, :source, :import_id, "active")',
-            [
-                'campaign_id' => $campaignId,
-                'recipient_id' => $recipientId,
-                'source' => $source,
-                'import_id' => $importId,
-            ]
+            ['campaign_id' => $campaignId, 'recipient_id' => $recipientId, 'source' => $source, 'import_id' => $importId]
         );
     }
 
@@ -86,17 +73,13 @@ final class CampaignRecipient extends Model
         if ($this->hasColumn('campaign_recipients', 'stopped_at')) {
             $this->execute(
                 'UPDATE campaign_recipients
-                 SET status = "removed",
+                 SET status = "excluded",
                      stopped_at = NOW(),
                      stop_reason = "Eliminado de la campana activa"
                  WHERE campaign_id = :campaign_id
                    AND recipient_id = :recipient_id',
-                [
-                    'campaign_id' => $campaignId,
-                    'recipient_id' => $recipientId,
-                ]
+                ['campaign_id' => $campaignId, 'recipient_id' => $recipientId]
             );
-
             if (class_exists('CampaignDelivery')) {
                 (new CampaignDelivery())->skipPendingForRecipient($campaignId, $recipientId, 'Destinatario eliminado de la campana activa.');
             }
@@ -107,10 +90,7 @@ final class CampaignRecipient extends Model
             'DELETE FROM campaign_recipients
              WHERE campaign_id = :campaign_id
                AND recipient_id = :recipient_id',
-            [
-                'campaign_id' => $campaignId,
-                'recipient_id' => $recipientId,
-            ]
+            ['campaign_id' => $campaignId, 'recipient_id' => $recipientId]
         );
     }
 
@@ -131,10 +111,7 @@ final class CampaignRecipient extends Model
 
     public function recipientIdsForScheduling(int $campaignId): array
     {
-        $respondedFilter = $this->hasColumn('campaign_recipients', 'responded_at')
-            ? ' AND cr.responded_at IS NULL'
-            : '';
-
+        $respondedFilter = $this->hasColumn('campaign_recipients', 'responded_at') ? ' AND cr.responded_at IS NULL' : '';
         $rows = $this->fetchAll(
             'SELECT cr.recipient_id
              FROM campaign_recipients cr
@@ -146,55 +123,77 @@ final class CampaignRecipient extends Model
              ORDER BY cr.id ASC',
             ['campaign_id' => $campaignId]
         );
-
-        return array_map(
-            static fn (array $row): int => (int) $row['recipient_id'],
-            $rows
-        );
+        return array_map(static fn (array $row): int => (int) $row['recipient_id'], $rows);
     }
 
-    public function markResponded(int $campaignId, int $recipientId, string $note = ''): void
+    public function markResponded(int $campaignId, int $recipientId, string $note = ''): int
     {
         $this->requireResponseColumns();
 
-        $this->execute(
+        $stmt = $this->db->prepare(
             'UPDATE campaign_recipients
-             SET responded_at = NOW(),
+             SET responded_at = COALESCE(responded_at, NOW()),
                  response_note = :response_note,
-                 stopped_at = NOW(),
-                 stop_reason = "Respondio",
-                 updated_at = NOW()
+                 stopped_at = COALESCE(stopped_at, NOW()),
+                 stop_reason = "Respondio"
              WHERE campaign_id = :campaign_id
-               AND recipient_id = :recipient_id',
-            [
-                'campaign_id' => $campaignId,
-                'recipient_id' => $recipientId,
-                'response_note' => mb_substr($note, 0, 500),
-            ]
+               AND recipient_id = :recipient_id
+               AND status = "active"'
         );
+        $stmt->execute([
+            'campaign_id' => $campaignId,
+            'recipient_id' => $recipientId,
+            'response_note' => mb_substr($note, 0, 500),
+        ]);
 
+        $affected = $stmt->rowCount();
         if (class_exists('CampaignDelivery')) {
             (new CampaignDelivery())->skipPendingForRecipient($campaignId, $recipientId, 'Destinatario respondio. Secuencia detenida.');
         }
+        return $affected;
+    }
+
+    public function markRespondedByEmail(string $email, string $note = ''): int
+    {
+        $this->requireResponseColumns();
+        $email = strtolower(trim($email));
+        if ($email === '') {
+            return 0;
+        }
+
+        $rows = $this->fetchAll(
+            'SELECT cr.campaign_id, cr.recipient_id
+             FROM campaign_recipients cr
+             INNER JOIN recipients r ON r.id = cr.recipient_id
+             INNER JOIN campaigns c ON c.id = cr.campaign_id
+             WHERE LOWER(r.email) = :email
+               AND cr.status = "active"
+               AND r.status = "active"
+               AND r.unsubscribed_at IS NULL
+               AND cr.responded_at IS NULL
+               AND c.status IN ("active", "processing")',
+            ['email' => $email]
+        );
+
+        $total = 0;
+        foreach ($rows as $row) {
+            $total += $this->markResponded((int) $row['campaign_id'], (int) $row['recipient_id'], $note);
+        }
+        return $total;
     }
 
     public function clearResponded(int $campaignId, int $recipientId): void
     {
         $this->requireResponseColumns();
-
         $this->execute(
             'UPDATE campaign_recipients
              SET responded_at = NULL,
                  response_note = NULL,
                  stopped_at = NULL,
-                 stop_reason = NULL,
-                 updated_at = NOW()
+                 stop_reason = NULL
              WHERE campaign_id = :campaign_id
                AND recipient_id = :recipient_id',
-            [
-                'campaign_id' => $campaignId,
-                'recipient_id' => $recipientId,
-            ]
+            ['campaign_id' => $campaignId, 'recipient_id' => $recipientId]
         );
     }
 

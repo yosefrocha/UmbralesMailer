@@ -6,8 +6,8 @@ final class Csrf
 {
     public static function token(): string
     {
-        if (!isset($_SESSION['_csrf'])) {
-            $_SESSION['_csrf'] = bin2hex(random_bytes(32));
+        if (!isset($_SESSION['_csrf']) || !is_string($_SESSION['_csrf']) || $_SESSION['_csrf'] === '') {
+            $_SESSION['_csrf'] = self::newToken();
         }
 
         return $_SESSION['_csrf'];
@@ -20,6 +20,33 @@ final class Csrf
 
     public static function validate(?string $token): bool
     {
-        return is_string($token) && hash_equals((string) ($_SESSION['_csrf'] ?? ''), $token);
+        if (!is_string($token) || $token === '') {
+            return false;
+        }
+
+        $current = $_SESSION['_csrf'] ?? null;
+        if (is_string($current) && $current !== '' && hash_equals($current, $token)) {
+            return true;
+        }
+
+        // Soporta temporalmente el token anterior para evitar falsos negativos
+        // cuando el usuario tiene dos pestañas abiertas o recarga durante cambios de archivos.
+        $previous = $_SESSION['_csrf_previous'] ?? null;
+        return is_string($previous) && $previous !== '' && hash_equals($previous, $token);
+    }
+
+    public static function regenerate(): string
+    {
+        if (isset($_SESSION['_csrf']) && is_string($_SESSION['_csrf'])) {
+            $_SESSION['_csrf_previous'] = $_SESSION['_csrf'];
+        }
+
+        $_SESSION['_csrf'] = self::newToken();
+        return $_SESSION['_csrf'];
+    }
+
+    private static function newToken(): string
+    {
+        return bin2hex(random_bytes(32));
     }
 }

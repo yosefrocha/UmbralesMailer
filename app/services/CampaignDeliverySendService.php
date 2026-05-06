@@ -86,11 +86,14 @@ final class CampaignDeliverySendService
                 );
             }
 
+            $baseReplyTo = $message['reply_to'] ?: ($settings['ses_reply_to'] ?? '');
+            $replyTo = (new ReplyAutomationService())->replyToForRecipient((string) $baseReplyTo, (int) $row['campaign_id'], (int) $row['recipient_id']);
+
             $result = $ses->send($settings, [
                 'to_email' => $row['email'],
                 'from_name' => $message['from_name'] ?: ($settings['ses_from_name'] ?? 'Equipo Umbrales'),
                 'from_email' => $message['from_email'] ?: ($settings['ses_from_email'] ?? ''),
-                'reply_to' => $message['reply_to'] ?: ($settings['ses_reply_to'] ?? ''),
+                'reply_to' => $replyTo,
                 'configuration_set' => $settings['ses_configuration_set'] ?? '',
                 'subject' => $subject,
                 'html_body' => $htmlToSend,

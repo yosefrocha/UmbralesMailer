@@ -6,16 +6,9 @@ final class SettingsController extends Controller
 {
     public function index(): void
     {
-        Auth::requireAdmin();
-        $scheduleService = new CampaignScheduleService();
-        $cronUrl = $scheduleService->cronUrl();
-
         $this->view('settings/index', [
             'title' => 'Configuración',
             'settings' => (new SettingsService())->all(),
-            'cronUrl' => $cronUrl,
-            'cronWgetCommand' => 'wget -q -O /dev/null "' . $cronUrl . '"',
-            'cronCurlCommand' => 'curl -s "' . $cronUrl . '" > /dev/null 2>&1',
             'error' => Session::getFlash('error'),
             'success' => Session::getFlash('success'),
         ]);
@@ -23,7 +16,6 @@ final class SettingsController extends Controller
 
     public function save(): void
     {
-        Auth::requireAdmin();
         $this->requireCsrf();
         $data = [
             'ses_region' => trim((string) $this->post('ses_region')),
@@ -33,6 +25,15 @@ final class SettingsController extends Controller
             'ses_from_name' => trim((string) $this->post('ses_from_name')),
             'ses_reply_to' => trim((string) $this->post('ses_reply_to')),
             'ses_configuration_set' => trim((string) $this->post('ses_configuration_set')),
+            'reply_detection_provider' => 'gmail_oauth',
+            'reply_detection_enabled' => (string) ($this->post('reply_detection_enabled', '0') === '1' ? '1' : '0'),
+            'gmail_oauth_client_id' => trim((string) $this->post('gmail_oauth_client_id')),
+            'gmail_oauth_client_secret' => trim((string) $this->post('gmail_oauth_client_secret')),
+            'gmail_oauth_redirect_uri' => trim((string) $this->post('gmail_oauth_redirect_uri')),
+            'gmail_oauth_refresh_token' => trim((string) $this->post('gmail_oauth_refresh_token')),
+            'gmail_oauth_mailbox' => trim((string) $this->post('gmail_oauth_mailbox')),
+            'gmail_oauth_label' => trim((string) $this->post('gmail_oauth_label', 'INBOX')) ?: 'INBOX',
+            'gmail_oauth_status' => 'pendiente',
         ];
         if ($data['ses_region'] === '' || $data['ses_from_email'] === '') {
             Session::flash('error', 'Región y remitente por defecto son obligatorios.');

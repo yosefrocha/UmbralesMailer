@@ -32,9 +32,11 @@ final class CampaignScheduleService
         $deliveryModel = new CampaignDelivery();
         $campaignRecipientModel = new CampaignRecipient();
 
+        // Recalcula solo pendientes. Los pasos ya enviados se conservan y no se vuelven a programar.
         $deliveryModel->deletePendingByCampaign($campaignId);
-        $recipientIds = $campaignRecipientModel->recipientIdsForScheduling($campaignId);
+        $deliveryModel->cleanupDuplicatesByCampaign($campaignId);
 
+        $recipientIds = $campaignRecipientModel->recipientIdsForScheduling($campaignId);
         if (empty($recipientIds)) {
             throw new RuntimeException('La campaña no tiene destinatarios activos asignados, o todos ya respondieron / se desuscribieron.');
         }
@@ -49,6 +51,8 @@ final class CampaignScheduleService
             }
         }
 
+        $duplicatesRemoved = $deliveryModel->cleanupDuplicatesByCampaign($campaignId);
+
         (new Campaign())->activateCampaign($campaignId);
         $this->ensureCronKey();
 
@@ -58,6 +62,7 @@ final class CampaignScheduleService
             'interval_days' => $intervalDays,
             'recipients' => count($recipientIds),
             'deliveries' => $createdOrUpdated,
+            'duplicates_removed' => $duplicatesRemoved,
         ]);
 
         return [
@@ -65,6 +70,7 @@ final class CampaignScheduleService
             'recipients' => count($recipientIds),
             'quota_per_recipient' => $quotaPerRecipient,
             'interval_days' => $intervalDays,
+            'duplicates_removed' => $duplicatesRemoved,
             'start_at' => $baseDate->format('Y-m-d H:i:s'),
         ];
     }

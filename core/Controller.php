@@ -53,17 +53,47 @@ abstract class Controller
         exit;
     }
 
-    protected function requireCsrf(): void
+    protected function requireCsrf(string $fallbackPath = '/'): void
     {
-        $token = $_POST['_token'] ?? '';
+        $token = $_POST['_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
 
         if (!Csrf::validate(is_string($token) ? $token : null)) {
+            Csrf::regenerate();
+
             if ($this->expectsJson()) {
-                $this->json(['ok' => false, 'error' => 'Token CSRF inválido. Recarga la página e intenta de nuevo.'], 419);
+                $this->json([
+                    'ok' => false,
+                    'error' => 'La sesión del formulario expiró. Recarga la página e intenta de nuevo.',
+                ], 419);
             }
-            http_response_code(419);
-            exit('Token CSRF inválido.');
+
+            Session::flash('error', 'La sesión del formulario expiró. Recarga la página e intenta de nuevo.');
+            $this->redirect($this->safeBackPath($fallbackPath));
         }
+    }
+
+    private function safeBackPath(string $fallbackPath): string
+    {
+        $referer = (string) ($_SERVER['HTTP_REFERER'] ?? '');
+        if ($referer === '') {
+            return $fallbackPath;
+        }
+
+        $parts = parse_url($referer);
+        if (!is_array($parts)) {
+            return $fallbackPath;
+        }
+
+        $path = $parts['path'] ?? $fallbackPath;
+        if (!is_string($path) || $path === '' || $path[0] !== '/') {
+            return $fallbackPath;
+        }
+
+        $query = isset($parts['query']) && is_string($parts['query']) && $parts['query'] !== ''
+            ? '?' . $parts['query']
+            : '';
+
+        return $path . $query;
     }
 
     private function expectsJson(): bool

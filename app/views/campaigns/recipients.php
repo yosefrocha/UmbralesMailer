@@ -53,7 +53,7 @@ $institutions = $institutions ?? [];
                             <th>Institución</th>
                             <th>Segmento</th>
                             <th>Estado</th>
-                            <?php if (Auth::isAdmin()): ?>
+                            <?php if (true): ?>
                                 <th class="text-end">Acciones</th>
                             <?php endif; ?>
                         </tr>
@@ -67,7 +67,7 @@ $institutions = $institutions ?? [];
                                 <td><?= htmlspecialchars((string)($row['institution'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                 <td><?= htmlspecialchars((string)($row['segment'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                 <td><?= htmlspecialchars((string)($row['campaign_status'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                <?php if (Auth::isAdmin()): ?>
+                                <?php if (true): ?>
                                     <td class="text-end">
                                         <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/recipients/<?= (int) $row['id'] ?>/remove" onsubmit="return confirm('¿Quitar este destinatario?');">
                                             <?= Csrf::input() ?>
@@ -79,7 +79,7 @@ $institutions = $institutions ?? [];
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="<?= Auth::isAdmin() ? 6 : 5 ?>" class="text-center text-muted py-4">
+                            <td colspan="6" class="text-center text-muted py-4">
                                 No hay destinatarios asignados.
                             </td>
                         </tr>
@@ -136,7 +136,7 @@ $institutions = $institutions ?? [];
             </div>
         </div>
 
-        <?php if (Auth::isAdmin() && !empty($availableRecipients)): ?>
+        <?php if (true && !empty($availableRecipients)): ?>
         <div class="card border-0 shadow-sm mb-3">
             <div class="card-body">
                 <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/recipients/assign-bulk" onsubmit="return confirm('¿Asignar todos los destinatarios visibles?');">
@@ -163,7 +163,7 @@ $institutions = $institutions ?? [];
                             <th>Institución</th>
                             <th>Segmento</th>
                             <th>País</th>
-                            <?php if (Auth::isAdmin()): ?>
+                            <?php if (true): ?>
                                 <th class="text-end">Asignar</th>
                             <?php endif; ?>
                         </tr>
@@ -177,7 +177,7 @@ $institutions = $institutions ?? [];
                                 <td><?= htmlspecialchars((string)($row['institution'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                 <td><?= htmlspecialchars((string)($row['segment'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                 <td><?= htmlspecialchars((string)($row['country'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                                <?php if (Auth::isAdmin()): ?>
+                                <?php if (true): ?>
                                     <td class="text-end">
                                         <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/recipients/assign">
                                             <?= Csrf::input() ?>
@@ -194,7 +194,7 @@ $institutions = $institutions ?? [];
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="<?= Auth::isAdmin() ? 6 : 5 ?>" class="text-center text-muted py-4">
+                            <td colspan="6" class="text-center text-muted py-4">
                                 No hay destinatarios disponibles con este filtro.
                             </td>
                         </tr>

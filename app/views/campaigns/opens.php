@@ -9,11 +9,15 @@ $filterLabels = [
     'opened' => 'Abrieron',
     'not_opened' => 'No abrieron',
     'failed' => 'Fallidos',
-    'not_sent' => 'No enviados',
+    'pending' => 'Pendientes',
 ];
+$exportQuery = http_build_query([
+    'filter' => $filter,
+    'search' => $search,
+]);
 ?>
 
-<div class="d-flex justify-content-between align-items-center mb-4 page-header">
+<div class="d-flex justify-content-between align-items-center mb-4 page-header flex-wrap gap-3">
     <div>
         <h1 class="h3 mb-1">Aperturas de campaña</h1>
         <p class="text-muted mb-0"><?= htmlspecialchars((string) ($campaign['name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
@@ -21,6 +25,7 @@ $filterLabels = [
     <div class="d-flex gap-2 flex-wrap page-actions">
         <a href="/campaigns/<?= $campaignId ?>" class="btn btn-outline-secondary">Volver a campaña</a>
         <a href="/campaigns/<?= $campaignId ?>/recipients" class="btn btn-outline-primary">Destinatarios</a>
+        <a href="/campaigns/<?= $campaignId ?>/opens/export<?= $exportQuery !== '' ? '?' . htmlspecialchars($exportQuery, ENT_QUOTES, 'UTF-8') : '' ?>" class="btn btn-success">Exportar CSV</a>
     </div>
 </div>
 
@@ -52,8 +57,8 @@ $filterLabels = [
     </div>
     <div class="col-6 col-xl-2">
         <div class="card metric-card h-100"><div class="card-body">
-            <div class="metric-label">No enviados</div>
-            <div class="metric-value"><?= (int) ($summary['not_sent'] ?? 0) ?></div>
+            <div class="metric-label">Pendientes</div>
+            <div class="metric-value"><?= (int) ($summary['pending'] ?? 0) ?></div>
         </div></div>
     </div>
     <div class="col-6 col-xl-2">
@@ -94,7 +99,7 @@ $filterLabels = [
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div>
                 <h2 class="h5 mb-1">Quién abrió y quién no</h2>
-                <p class="text-muted small mb-0">La columna “Abrió” muestra si el destinatario cargó el correo al menos una vez.</p>
+                <p class="text-muted small mb-0">La vista muestra destinatarios enviados, abiertos, no abiertos, fallidos y pendientes.</p>
             </div>
             <span class="badge text-bg-light border"><?= count($rows) ?> registros visibles</span>
         </div>
@@ -107,6 +112,7 @@ $filterLabels = [
                         <th>Nombre</th>
                         <th>Institución</th>
                         <th>Segmento</th>
+                        <th>País</th>
                         <th>Envío</th>
                         <th>Abrió</th>
                         <th>Fecha de apertura</th>
@@ -136,6 +142,7 @@ $filterLabels = [
                             <td><?= htmlspecialchars((string) ($row['name'] ?: '—'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td><?= htmlspecialchars((string) ($row['institution'] ?: '—'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td><?= htmlspecialchars((string) ($row['segment'] ?: '—'), ENT_QUOTES, 'UTF-8') ?></td>
+                            <td><?= htmlspecialchars((string) ($row['country'] ?: '—'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td><span class="badge <?= $sendBadge ?>"><?= htmlspecialchars((string) ($row['send_label'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td>
                                 <?php if ($opened): ?>
@@ -151,7 +158,7 @@ $filterLabels = [
                         </tr>
                     <?php endforeach; ?>
                     <?php if (empty($rows)): ?>
-                        <tr><td colspan="8" class="text-muted">No hay destinatarios con ese filtro.</td></tr>
+                        <tr><td colspan="9" class="text-muted">No hay destinatarios con ese filtro.</td></tr>
                     <?php endif; ?>
                 </tbody>
             </table>

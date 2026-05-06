@@ -45,6 +45,78 @@ final class Recipient extends Model
         return $this->fetchAll($sql, $params);
     }
 
+
+    public function paginated(string $search = '', string $status = '', int $limit = 25, int $offset = 0, string $sort = 'created_at', string $direction = 'desc'): array
+    {
+        $limit = max(25, min(200, $limit));
+        $offset = max(0, $offset);
+        [$where, $params] = $this->recipientFilters($search, $status);
+        [$orderColumn, $orderDirection] = $this->normalizeSort($sort, $direction);
+
+        $sql = 'SELECT * FROM recipients ' . $where . ' ORDER BY ' . $orderColumn . ' ' . $orderDirection . ', id DESC LIMIT ' . $limit . ' OFFSET ' . $offset;
+
+        return $this->fetchAll($sql, $params);
+    }
+
+    public function countFiltered(string $search = '', string $status = ''): int
+    {
+        [$where, $params] = $this->recipientFilters($search, $status);
+        $row = $this->fetchOne('SELECT COUNT(*) AS total FROM recipients ' . $where, $params);
+        return (int) ($row['total'] ?? 0);
+    }
+
+    private function recipientFilters(string $search, string $status): array
+    {
+        $where = 'WHERE 1=1';
+        $params = [];
+
+        $search = trim($search);
+        if ($search !== '') {
+            $term = '%' . $search . '%';
+            $where .= ' AND (email LIKE :term_email OR first_name LIKE :term_first_name OR last_name LIKE :term_last_name OR institution LIKE :term_institution OR country LIKE :term_country OR segment LIKE :term_segment)';
+            $params['term_email'] = $term;
+            $params['term_first_name'] = $term;
+            $params['term_last_name'] = $term;
+            $params['term_institution'] = $term;
+            $params['term_country'] = $term;
+            $params['term_segment'] = $term;
+        }
+
+        if ($status !== '') {
+            if ($status === 'subscribed') {
+                $where .= ' AND unsubscribed_at IS NULL';
+            } elseif ($status === 'unsubscribed') {
+                $where .= ' AND unsubscribed_at IS NOT NULL';
+            } elseif (in_array($status, ['active', 'inactive'], true)) {
+                $where .= ' AND status = :status';
+                $params['status'] = $status;
+            }
+        }
+
+        return [$where, $params];
+    }
+
+    private function normalizeSort(string $sort, string $direction): array
+    {
+        $allowed = [
+            'email' => 'email',
+            'first_name' => 'first_name',
+            'last_name' => 'last_name',
+            'institution' => 'institution',
+            'country' => 'country',
+            'segment' => 'segment',
+            'status' => 'status',
+            'subscription' => 'unsubscribed_at',
+            'created_at' => 'created_at',
+            'updated_at' => 'updated_at',
+        ];
+
+        $column = $allowed[$sort] ?? 'created_at';
+        $dir = strtolower($direction) === 'asc' ? 'ASC' : 'DESC';
+
+        return [$column, $dir];
+    }
+
     public function find(int $id): ?array
     {
         return $this->fetchOne('SELECT * FROM recipients WHERE id = :id LIMIT 1', ['id' => $id]);

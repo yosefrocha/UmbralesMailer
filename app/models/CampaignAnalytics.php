@@ -17,9 +17,18 @@ final class CampaignAnalytics extends Model
         ];
     }
 
-    public function campaignPerformance(int $limit = 8): array
+    public function campaignPerformanceCount(string $search = '', string $status = ''): int
     {
-        $limit = max(1, min(50, $limit));
+        [$where, $params] = $this->campaignPerformanceFilters($search, $status);
+        return $this->safeScalar('SELECT COUNT(*) FROM campaigns c ' . $where, $params);
+    }
+
+    public function campaignPerformance(int $limit = 15, string $search = '', string $status = '', int $offset = 0): array
+    {
+        $limit = max(1, min(15, $limit));
+        $offset = max(0, $offset);
+        [$where, $params] = $this->campaignPerformanceFilters($search, $status);
+
         $hasOpenColumns = $this->hasColumn('send_session_items', 'opened_at') && $this->hasColumn('send_session_items', 'open_count');
 
         if ($hasOpenColumns) {
@@ -71,10 +80,11 @@ final class CampaignAnalytics extends Model
                        AND r_u.unsubscribed_at IS NOT NULL) AS unsubscribed_count,
                     COALESCE((SELECT MAX(ss_l.updated_at) FROM send_sessions ss_l WHERE ss_l.campaign_id = c.id), c.updated_at) AS last_activity_at
                 FROM campaigns c
+                ' . $where . '
                 ORDER BY last_activity_at DESC, c.id DESC
-                LIMIT ' . $limit;
+                LIMIT ' . $limit . ' OFFSET ' . $offset;
 
-        $rows = $this->safeFetchAll($sql);
+        $rows = $this->safeFetchAll($sql, $params);
 
         foreach ($rows as &$row) {
             $row['assigned_count'] = (int) ($row['assigned_count'] ?? 0);
@@ -91,6 +101,26 @@ final class CampaignAnalytics extends Model
         unset($row);
 
         return $rows;
+    }
+
+    private function campaignPerformanceFilters(string $search, string $status): array
+    {
+        $where = 'WHERE 1=1';
+        $params = [];
+
+        $search = trim($search);
+        if ($search !== '') {
+            $where .= ' AND c.name LIKE :campaign_search';
+            $params['campaign_search'] = '%' . $search . '%';
+        }
+
+        $allowedStatuses = ['draft', 'active', 'completed', 'cancelled'];
+        if (in_array($status, $allowedStatuses, true)) {
+            $where .= ' AND COALESCE(NULLIF(c.status, ""), "draft") = :campaign_status';
+            $params['campaign_status'] = $status;
+        }
+
+        return [$where, $params];
     }
 
     public function campaignMetrics(int $campaignId): array

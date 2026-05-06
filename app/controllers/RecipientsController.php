@@ -6,13 +6,42 @@ final class RecipientsController extends Controller
 {
     public function index(): void
     {
-        $search = trim((string) $this->get('q'));
-        $status = trim((string) $this->get('status'));
+        Auth::requireAuth();
+
+        $search = trim((string) $this->get('q', ''));
+        $status = trim((string) $this->get('status', ''));
+        if (!in_array($status, ['', 'active', 'inactive', 'subscribed', 'unsubscribed'], true)) {
+            $status = '';
+        }
+
+        $perPage = 25;
+        $page = max(1, (int) $this->get('page', 1));
+        $sort = trim((string) $this->get('sort', 'created_at'));
+        $direction = strtolower(trim((string) $this->get('dir', 'desc'))) === 'asc' ? 'asc' : 'desc';
+
+        $recipientModel = new Recipient();
+        $total = $recipientModel->countFiltered($search, $status);
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+
         $this->view('recipients/index', [
             'title' => 'Destinatarios',
-            'recipients' => (new Recipient())->all($search, $status),
+            'recipients' => $recipientModel->paginated($search, $status, $perPage, $offset, $sort, $direction),
             'search' => $search,
             'statusFilter' => $status,
+            'sort' => $sort,
+            'direction' => $direction,
+            'pagination' => [
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'total_pages' => $totalPages,
+                'from' => $total > 0 ? $offset + 1 : 0,
+                'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
+            ],
             'error' => Session::getFlash('error'),
             'success' => Session::getFlash('success'),
             'importResult' => Session::getFlash('import_result'),

@@ -17,6 +17,15 @@ final class SettingsService
             'ses_from_name' => $defaults['from_name'] ?? '',
             'ses_reply_to' => $defaults['reply_to'] ?? '',
             'ses_configuration_set' => $defaults['configuration_set'] ?? '',
+            'reply_detection_provider' => 'gmail_oauth',
+            'reply_detection_enabled' => '0',
+            'gmail_oauth_client_id' => '',
+            'gmail_oauth_client_secret' => '',
+            'gmail_oauth_redirect_uri' => '',
+            'gmail_oauth_refresh_token' => '',
+            'gmail_oauth_mailbox' => '',
+            'gmail_oauth_label' => 'INBOX',
+            'gmail_oauth_status' => 'pendiente',
         ];
 
         foreach ($rows as $key => $row) {
@@ -28,7 +37,7 @@ final class SettingsService
     public function save(array $data): void
     {
         $settingModel = new Setting();
-        $sensitive = ['ses_key', 'ses_secret'];
+        $sensitive = ['ses_key', 'ses_secret', 'gmail_oauth_client_secret', 'gmail_oauth_refresh_token'];
         foreach ($data as $key => $value) {
             $settingModel->set($key, $value !== '' ? (string) $value : null, in_array($key, $sensitive, true));
         }

@@ -21,7 +21,7 @@ final class AuthController extends Controller
 
     public function login(): void
     {
-        $this->requireCsrf();
+        $this->requireCsrf('/login');
 
         if (Auth::check()) {
             $this->redirect('/');
@@ -103,7 +103,7 @@ final class AuthController extends Controller
 
     public function logout(): void
     {
-        $this->requireCsrf();
+        $this->requireCsrf('/');
 
         if (Auth::check()) {
             AuditLogger::log('auth.logout', 'user', Auth::user()['id'] ?? null);

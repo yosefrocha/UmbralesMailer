@@ -7,9 +7,40 @@ final class CampaignsController extends Controller
     public function index(): void
     {
         Auth::requireAuth();
+
+        $search = trim((string) $this->get('q', ''));
+        $status = trim((string) $this->get('status', ''));
+        $allowedStatuses = ['', 'draft', 'active', 'completed', 'cancelled'];
+        if (!in_array($status, $allowedStatuses, true)) {
+            $status = '';
+        }
+
+        // Campañas: paginado fijo de 20 por página.
+        // No se expone selector de cantidad en la interfaz.
+        $perPage = 20;
+
+        $page = max(1, (int) $this->get('page', 1));
+        $campaignModel = new Campaign();
+        $total = $campaignModel->countSearch($search, $status);
+        $totalPages = max(1, (int) ceil($total / $perPage));
+        if ($page > $totalPages) {
+            $page = $totalPages;
+        }
+        $offset = ($page - 1) * $perPage;
+
         $this->view('campaigns/index', [
             'title'     => 'Campañas',
-            'campaigns' => (new Campaign())->all(),
+            'campaigns' => $campaignModel->searchPaginated($search, $status, $perPage, $offset),
+            'filters'   => [
+                'search' => $search,
+                'status' => $status,
+                'per_page' => $perPage,
+                'page' => $page,
+                'total' => $total,
+                'total_pages' => $totalPages,
+                'from' => $total > 0 ? $offset + 1 : 0,
+                'to' => $total > 0 ? min($offset + $perPage, $total) : 0,
+            ],
             'error'     => Session::getFlash('error'),
             'success'   => Session::getFlash('success'),
         ]);

@@ -193,7 +193,7 @@ $timeline = $campaignTimeline ?? [];
                         </a>
                     <?php endif; ?>
 
-                    <?php if (Auth::isAdmin() && $campaign['status'] !== 'cancelled'): ?>
+                    <?php if ($campaign['status'] !== 'cancelled'): ?>
                         <?php if ($campaign['status'] === 'active'): ?>
                             <form method="post" action="/campaigns/<?= (int) $campaign['id'] ?>/deactivate">
                                 <?= Csrf::input() ?>

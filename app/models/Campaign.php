@@ -26,6 +26,63 @@ final class Campaign extends Model
         return $this->fetchAll($sql);
     }
 
+
+    public function searchPaginated(string $search = '', string $status = '', int $limit = 20, int $offset = 0): array
+    {
+        $limit = max(20, min(100, $limit));
+        $offset = max(0, $offset);
+        [$where, $params] = $this->searchFilters($search, $status);
+
+        $sql = 'SELECT 
+                    c.id,
+                    c.name,
+                    c.description,
+                    COALESCE(NULLIF(c.status, ""), "draft") AS status,
+                    c.created_by,
+                    c.started_at,
+                    c.finished_at,
+                    c.created_at,
+                    c.updated_at,
+                    u.name AS creator_name,
+                    (SELECT COUNT(*) FROM campaign_recipients cr WHERE cr.campaign_id = c.id AND cr.status = "active") AS recipients_count,
+                    (SELECT COUNT(*) FROM send_sessions ss WHERE ss.campaign_id = c.id) AS sessions_count,
+                    (SELECT COALESCE(MAX(ss.updated_at), c.updated_at) FROM send_sessions ss WHERE ss.campaign_id = c.id) AS last_activity_at
+                FROM campaigns c
+                INNER JOIN users u ON u.id = c.created_by
+                ' . $where . '
+                ORDER BY c.id DESC
+                LIMIT ' . $limit . ' OFFSET ' . $offset;
+
+        return $this->fetchAll($sql, $params);
+    }
+
+    public function countSearch(string $search = '', string $status = ''): int
+    {
+        [$where, $params] = $this->searchFilters($search, $status);
+        $row = $this->fetchOne('SELECT COUNT(*) AS total FROM campaigns c ' . $where, $params);
+        return (int) ($row['total'] ?? 0);
+    }
+
+    private function searchFilters(string $search, string $status): array
+    {
+        $where = 'WHERE 1=1';
+        $params = [];
+
+        $search = trim($search);
+        if ($search !== '') {
+            $where .= ' AND (c.name LIKE :search OR c.description LIKE :search)';
+            $params['search'] = '%' . $search . '%';
+        }
+
+        $allowedStatuses = ['draft', 'active', 'completed', 'cancelled'];
+        if (in_array($status, $allowedStatuses, true)) {
+            $where .= ' AND COALESCE(NULLIF(c.status, ""), "draft") = :status';
+            $params['status'] = $status;
+        }
+
+        return [$where, $params];
+    }
+
     public function find(int $id): ?array
     {
         return $this->fetchOne(
